@@ -4,3 +4,5 @@ obj/
 *.user
 *.suo
 .env
+
+firebase_config.json

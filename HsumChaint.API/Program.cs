@@ -1,8 +1,11 @@
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
 using HsumChaint.Application.Mappings;
 using HsumChaint.Application.ServiceInterfaces;
 using HsumChaint.Application.Services;
 using HsumChaint.Infrastructure.Helpers;
 using HsumChaint.Infrastructure.Models;
+using HsumChaint.Infrastructure.Providers;
 using HsumChaint.Infrastructure.Repositories;
 using HsumChaint.Infrastructure.RepositoryInterfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -13,6 +16,12 @@ using Scalar.AspNetCore;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Firebase Config
+FirebaseApp.Create(new AppOptions()
+{
+    Credential = GoogleCredential.FromFile(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "firebase_config.json")),
+});
 
 // Add Automapper
 builder.Services.AddAutoMapper(config =>
@@ -39,6 +48,8 @@ builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 
+builder.Services.AddScoped<INotificationService, NotificationServices>();
+builder.Services.AddScoped<IFirebaseNotificationProvider, FirebaseNotificationProvider>();
 builder.Services.AddOpenApi();
 
 //JWT AUTH
