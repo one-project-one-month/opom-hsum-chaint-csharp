@@ -47,6 +47,44 @@ namespace HsumChaint.Application.Services
             }
             return response;
         }
+
+        public async Task<ApplicationCommonResponseModel<List<UserDto>>> GetAllUsers()
+        {
+            var response = new ApplicationCommonResponseModel<List<UserDto>>();
+            try
+            {
+                var addResponse = await _userRepository.GetAllUsers();
+
+                response.IsSuccess = addResponse.IsSuccess;
+                response.Message = addResponse.Message;
+                response.ListData = _mapper.Map<List<UserDto>>(addResponse.ListData);
+            }
+            catch (Exception ex)
+            {
+                response.IsSuccess = false;
+                response.Message = $"Application Layer Exception: {ex.Message}";
+            }
+            return response;
+        }
+
+        public async Task<ApplicationCommonResponseModel<UserDto>> GetUser(int id)
+        {
+            var response = new ApplicationCommonResponseModel<UserDto>();
+            try
+            {
+                var addResponse = await _userRepository.GetUser(id);
+
+                response.IsSuccess = addResponse.IsSuccess;
+                response.Message = addResponse.Message;
+                response.Data = _mapper.Map<UserDto>(addResponse.Data);
+            }
+            catch (Exception ex)
+            {
+                response.IsSuccess = false;
+                response.Message = $"Application Layer Exception: {ex.Message}";
+            }
+            return response;
+        }
         #endregion
     }
 }
