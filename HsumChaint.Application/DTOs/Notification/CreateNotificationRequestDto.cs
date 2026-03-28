@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace HsumChaint.Application.DTOs
+namespace HsumChaint.Application.DTOs.Notification
 {
     public class CreateNotificationRequestDto
     {

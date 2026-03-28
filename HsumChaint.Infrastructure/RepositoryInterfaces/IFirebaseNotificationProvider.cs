@@ -6,6 +6,6 @@ namespace HsumChaint.Infrastructure.RepositoryInterfaces
 {
     public interface IFirebaseNotificationProvider
     {
-        Task<bool> SendPushAsync(string deviceToken, string title, string body, Dictionary<string, string> data);
+        Task<bool> SendPushAsync(string deviceToken, string? title, string? body, Dictionary<string, string> data);
     }
 }

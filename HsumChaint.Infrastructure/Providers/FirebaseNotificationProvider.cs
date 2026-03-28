@@ -8,7 +8,7 @@ namespace HsumChaint.Infrastructure.Providers
 {
     public class FirebaseNotificationProvider : IFirebaseNotificationProvider
     {
-        public async Task<bool> SendPushAsync(string deviceToken, string title, string body, Dictionary<string, string> data)
+        public async Task<bool> SendPushAsync(string deviceToken, string? title, string? body, Dictionary<string, string> data)
         {
             var message = new Message()
             {

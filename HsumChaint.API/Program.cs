@@ -36,9 +36,9 @@ builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 
 
-//builder.Services.AddDbContext<AppDbContext>(options => options.UseMySql(builder.Configuration.GetConnectionString("DefaultConnection")
-//    , ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("DefaultConnection"))));
-builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddDbContext<AppDbContext>(options => options.UseMySql(builder.Configuration.GetConnectionString("DefaultConnection")
+    , ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("DefaultConnection"))));
+//builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
@@ -47,7 +47,7 @@ builder.Services.AddScoped<AuthHelper>();
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
-
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<INotificationService, NotificationServices>();
 builder.Services.AddScoped<IFirebaseNotificationProvider, FirebaseNotificationProvider>();
 builder.Services.AddOpenApi();
