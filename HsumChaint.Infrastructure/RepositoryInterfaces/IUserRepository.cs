@@ -9,5 +9,7 @@ namespace HsumChaint.Infrastructure.RepositoryInterfaces
         Task<CommonResponseModel<List<User>>> GetAllUsers();
 
         Task<CommonResponseModel<User>> GetUser(int id);
+
+        Task<CommonResponseModel<User>> PutUser(User user);
     }
 }

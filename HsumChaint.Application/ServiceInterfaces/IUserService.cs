@@ -9,5 +9,7 @@ namespace HsumChaint.Application.ServiceInterfaces
         Task<ApplicationCommonResponseModel<List<UserDto>>> GetAllUsers();
 
         Task<ApplicationCommonResponseModel<UserDto>> GetUser(int id);
+
+        Task<ApplicationCommonResponseModel<UserDto>> PutUser(UserDto user);
     }
 }

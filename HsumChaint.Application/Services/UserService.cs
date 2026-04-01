@@ -1,11 +1,9 @@
 ﻿using HsumChaint.Application.ServiceInterfaces;
 using HsumChaint.Infrastructure.RepositoryInterfaces;
-using AutoMapper;
-using System;
-using System.Collections.Generic;
-using System.Text;
 using HsumChaint.Infrastructure.Models;
 using HsumChaint.Application.DTOs.User;
+
+using AutoMapper;
 
 namespace HsumChaint.Application.Services
 {
@@ -47,7 +45,9 @@ namespace HsumChaint.Application.Services
             }
             return response;
         }
+        #endregion
 
+        #region GetUserList
         public async Task<ApplicationCommonResponseModel<List<UserDto>>> GetAllUsers()
         {
             var response = new ApplicationCommonResponseModel<List<UserDto>>();
@@ -66,7 +66,9 @@ namespace HsumChaint.Application.Services
             }
             return response;
         }
+        #endregion
 
+        #region GetUserById
         public async Task<ApplicationCommonResponseModel<UserDto>> GetUser(int id)
         {
             var response = new ApplicationCommonResponseModel<UserDto>();
@@ -77,6 +79,30 @@ namespace HsumChaint.Application.Services
                 response.IsSuccess = addResponse.IsSuccess;
                 response.Message = addResponse.Message;
                 response.Data = _mapper.Map<UserDto>(addResponse.Data);
+            }
+            catch (Exception ex)
+            {
+                response.IsSuccess = false;
+                response.Message = $"Application Layer Exception: {ex.Message}";
+            }
+            return response;
+        }
+        #endregion
+
+        #region UpdateUser
+        public async Task<ApplicationCommonResponseModel<UserDto>> PutUser(UserDto user)
+        {
+            var response = new ApplicationCommonResponseModel<UserDto>();
+            try
+            {
+                // Map DTO to entity for repository call
+                var userEntity = _mapper.Map<User>(user);
+
+                var addResponse = await _userRepository.PutUser(userEntity);
+
+                response.IsSuccess = addResponse.IsSuccess;
+                response.Message = addResponse.Message;
+                response.Data = null; // No Need to return updated user data in this case
             }
             catch (Exception ex)
             {
