@@ -101,11 +101,12 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.CreatedAt)
                 .HasColumnType("datetime")
-                .HasColumnName("created_at");
-            entity.Property(e => e.IsRead).HasColumnName("isRead");
-            entity.Property(e => e.Message).HasColumnName("message");
-            entity.Property(e => e.Type).HasColumnName("type");
-            entity.Property(e => e.UserId).HasColumnName("user_id");
+                .HasColumnName("CreatedAt");
+            entity.Property(e => e.IsRead).HasColumnName("IsRead");
+            entity.Property(e => e.Message).HasColumnName("Message");
+            entity.Property(e => e.Type).HasColumnName("Type");
+            entity.Property(e => e.UserId).HasColumnName("UserId");
+            entity.Property(e => e.IsDelete).HasColumnName("IsDelete");
         });
 
         modelBuilder.Entity<RefreshToken>(entity =>
