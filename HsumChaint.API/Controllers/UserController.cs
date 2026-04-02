@@ -1,7 +1,6 @@
 ﻿using HsumChaint.Application.DTOs.User;
-using HsumChaint.Application.DTOs;
 using HsumChaint.Application.ServiceInterfaces;
-using Microsoft.AspNetCore.Http;
+
 using Microsoft.AspNetCore.Mvc;
 
 namespace HsumChaint.API.Controllers
@@ -46,6 +45,17 @@ namespace HsumChaint.API.Controllers
             var user = await _userService.AddUser(reqModel);
 
             if (user == null)
+                return NotFound();
+
+            return Ok(user);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> PutUser(UserDto user)
+        {
+            var updatedResult = await _userService.PutUser(user);
+
+            if (updatedResult == null)
                 return NotFound();
 
             return Ok(user);
