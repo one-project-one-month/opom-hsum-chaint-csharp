@@ -1,4 +1,6 @@
-﻿using System;
+﻿using HsumChaint.Common.CommonEnum;
+
+using System;
 using System.Collections.Generic;
 
 namespace HsumChaint.Infrastructure.Models;
@@ -13,11 +15,7 @@ public partial class User
 
     public string Password { get; set; } = null!;
 
-    public string UserType { get; set; } = null!;
-
-    public string? MonasteryName { get; set; }
-
-    public string? MonasteryAddress { get; set; }
+    public UserType UserType { get; set; }
 
     public string? Email { get; set; }
 

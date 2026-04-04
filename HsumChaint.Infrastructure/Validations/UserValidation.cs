@@ -29,17 +29,6 @@ namespace HsumChaint.Infrastructure.Validations
                 return false;
             }
 
-            if (string.IsNullOrEmpty(user.UserType))
-            {
-                errorMessage = "User type cannot be null or empty.";
-                return false;
-            }
-
-            if (user.UserType == "Monk")
-            {
-                // TODO: Add Monestery validation for monk
-            }
-
             return true;
         }
     }
