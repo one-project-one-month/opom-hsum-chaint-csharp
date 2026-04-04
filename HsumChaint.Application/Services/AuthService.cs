@@ -96,7 +96,7 @@ namespace HsumChaint.Application.Services
                     return response;
                 }
 
-                string Token = this.GenerateToken(existingUser.Data.PhoneNumber, existingUser.Data.UserType);
+                string Token = this.GenerateToken(existingUser.Data.PhoneNumber, existingUser.Data.UserType.ToString()); // UserType is changed to enum
                 string refreshToken = await this.GenerateAndSaveRefreshToken(new GenerateRefreshTokenDto { UserId = existingUser.Data.Id });
 
                 response.IsSuccess = true;
@@ -138,7 +138,7 @@ namespace HsumChaint.Application.Services
                         return response;
                     }
 
-                    string Token = this.GenerateToken(existingUser.Data.PhoneNumber, existingUser.Data.UserType);
+                    string Token = this.GenerateToken(existingUser.Data.PhoneNumber, existingUser.Data.UserType.ToString()); // UserType is changed to enum
                     string refreshToken = await this.GenerateAndSaveRefreshToken(new GenerateRefreshTokenDto { UserId = existingUser.Data.Id });
 
                     response.IsSuccess = true;

@@ -12,6 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\HsumChaint.Common\HsumChaint.Common.csproj" />
     <ProjectReference Include="..\HsumChaint.Infrastructure\HsumChaint.Infrastructure.csproj" />
   </ItemGroup>
 

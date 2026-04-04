@@ -15,7 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\HsumChaint.Application\HsumChaint.Application.csproj" />
-    <ProjectReference Include="..\HsumChaint.Infrastructure\HsumChaint.Infrastructure.csproj" />
+    <ProjectReference Include="..\HsumChaint.Common\HsumChaint.Common.csproj" />
   </ItemGroup>
 
 </Project>

@@ -142,8 +142,6 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.Email).HasMaxLength(255);
             entity.Property(e => e.FcmToken).HasMaxLength(255);
             entity.Property(e => e.IsDeleted).HasDefaultValueSql("'0'");
-            entity.Property(e => e.MonasteryAddress).HasMaxLength(255);
-            entity.Property(e => e.MonasteryName).HasMaxLength(255);
             entity.Property(e => e.Name).HasMaxLength(255);
             entity.Property(e => e.Password).HasMaxLength(255);
             entity.Property(e => e.PhoneNumber).HasMaxLength(50);
@@ -152,6 +150,20 @@ public partial class AppDbContext : DbContext
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("datetime");
             entity.Property(e => e.UserType).HasMaxLength(255);
+        });
+
+        modelBuilder.Entity<User>()
+            .Property(u => u.UserType)
+            .HasConversion<int>(); // maps enum to int automatically
+
+        modelBuilder.Entity<MonkProfile>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("MonkProfile");
+
+            entity.Property(e => e.MonasteryAddress).HasMaxLength(500);
+            entity.Property(e => e.MonasteryName).HasMaxLength(255);
         });
 
         modelBuilder.Entity<UserSetting>(entity =>
