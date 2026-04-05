@@ -1,3 +1,4 @@
+using Azure;
 using HsumChaint.Application.DTOs.Auth;
 using HsumChaint.Application.ServiceInterfaces;
 using HsumChaint.Infrastructure.Models;
@@ -56,11 +57,34 @@ namespace HsumChaint.Application.Services
                     Name = reqModel.Name,
                     PhoneNumber = reqModel.PhoneNumber,
                     Password = reqModel.Password,
-                    UserType = reqModel.UserType
+                    UserType = reqModel.UserType,
+                    Email = reqModel.Email,
+                    ContactPhoneNumber = reqModel.ContactPhoneNumber
                 });
 
-                response.IsSuccess = registerResponse.IsSuccess;
-                response.Message = registerResponse.Message;
+                // Reigseter Monk Profile
+                if (reqModel.UserType == Common.CommonEnum.UserType.Monk && registerResponse.IsSuccess == true)
+                {
+                    MonkProfile monkProfile = new MonkProfile();
+
+                    var registerMonkProfileResponse = await _authRepo.RegisterMonkProfile(new MonkProfile
+                    {
+                        UserId = registerResponse.Data.Id,
+                        MonasteryName = reqModel.MonasteryName,
+                        MonasteryAddress = reqModel.MonasteryAddress,
+                    });
+
+                    response.IsSuccess = registerMonkProfileResponse.IsSuccess;
+                    response.Message = registerResponse.Message+"\n" + registerMonkProfileResponse.Message;
+                }
+                else
+                {
+                    response.IsSuccess = registerResponse.IsSuccess; // false
+                    response.Message = registerResponse.Message;
+                }
+
+                return response;
+
             }
             catch (Exception ex)
             {
