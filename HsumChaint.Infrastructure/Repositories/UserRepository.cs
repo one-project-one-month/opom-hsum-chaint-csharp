@@ -125,7 +125,6 @@ namespace HsumChaint.Infrastructure.Repositories
 
                 if (existingUserResponse.Data is not null)
                 {
-                    //var updatedUser = existingUserResponse.Data; // First get the existing user data
 
                     string errorMessage;
                     var validator = new UserValidation();
@@ -145,7 +144,6 @@ namespace HsumChaint.Infrastructure.Repositories
                     existingUserResponse.Data.Email = user.Email;
                     existingUserResponse.Data.ContactPhoneNumber = user.ContactPhoneNumber;
 
-                    ; // Assign the new user data to the existing user object
                     _context.Users.Update(existingUserResponse.Data);
                     var result = await _context.SaveChangesAsync();
 
