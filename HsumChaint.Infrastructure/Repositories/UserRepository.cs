@@ -125,7 +125,7 @@ namespace HsumChaint.Infrastructure.Repositories
 
                 if (existingUserResponse.Data is not null)
                 {
-                    var updatedUser = existingUserResponse.Data; // First get the existing user data
+                    //var updatedUser = existingUserResponse.Data; // First get the existing user data
 
                     string errorMessage;
                     var validator = new UserValidation();
@@ -139,8 +139,14 @@ namespace HsumChaint.Infrastructure.Repositories
                         return response; // Exit early if validation fails   
                     }
 
-                    updatedUser = user; // Assign the new user data to the existing user object
-                    _context.Users.Update(updatedUser);
+                    existingUserResponse.Data.Name = user.Name;
+                    existingUserResponse.Data.PhoneNumber = user.PhoneNumber;
+                    existingUserResponse.Data.UserType = user.UserType;
+                    existingUserResponse.Data.Email = user.Email;
+                    existingUserResponse.Data.ContactPhoneNumber = user.ContactPhoneNumber;
+
+                    ; // Assign the new user data to the existing user object
+                    _context.Users.Update(existingUserResponse.Data);
                     var result = await _context.SaveChangesAsync();
 
                     if(result <= 0)
@@ -159,7 +165,7 @@ namespace HsumChaint.Infrastructure.Repositories
                 {
                     response.Data = null;
                     response.IsSuccess = false;
-                    response.Message = "The requested user data for update could not be found.";
+                    response.Message = "User not found";
                 }
             }
             catch (Exception ex)
@@ -169,6 +175,51 @@ namespace HsumChaint.Infrastructure.Repositories
                 response.Message = $"Repo Layer Exception: {ex.Message}";
             }
 
+            return response;
+        }
+        #endregion
+
+        #region DeleteUser
+        public async Task<CommonResponseModel<User>> DeleteUser(int id)
+        {
+            var response = new CommonResponseModel<User>();
+
+            try
+            {
+
+                //User? user = await _context.Users.Where(user => user.IsDeleted == false && user.Id == id).FirstOrDefaultAsync();
+                User? user = await _context.Users.FindAsync(id);
+
+                if (user is not null)
+                {
+                    user.IsDeleted = true;
+                    user.UpdatedAt = DateTime.UtcNow;
+
+                    var result = await _context.SaveChangesAsync();
+
+                    if (result <= 0)
+                    {
+                        response.IsSuccess = false;
+                        response.Message = "Failed to delete user data.";
+                        return response; // Exit early if save operation fails
+                    }
+
+                    response.IsSuccess = true;
+                    response.Message = "User deleted successfully.";
+                }
+                else
+                {
+                    response.IsSuccess = true;
+                    response.Message = "User not found";
+                }
+
+            }
+            catch (Exception ex)
+            {
+                // T.B.D : Should I add null value Data
+                response.IsSuccess = false;
+                response.Message = $"Repo Layer  Exception :{ex.Message}";
+            }
             return response;
         }
         #endregion

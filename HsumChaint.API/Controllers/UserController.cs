@@ -38,19 +38,7 @@ namespace HsumChaint.API.Controllers
             return Ok(user);
         }
 
-        [HttpPost]
-        [Route("AddUser")]
-        public async Task<IActionResult> GetAddUser(UserDto reqModel)
-        {
-            var user = await _userService.AddUser(reqModel);
-
-            if (user == null)
-                return NotFound();
-
-            return Ok(user);
-        }
-
-        [HttpPut("{id}")]
+        [HttpPut]
         public async Task<IActionResult> PutUser(UserDto user)
         {
             var updatedResult = await _userService.PutUser(user);
@@ -58,7 +46,18 @@ namespace HsumChaint.API.Controllers
             if (updatedResult == null)
                 return NotFound();
 
-            return Ok(user);
+            return Ok(updatedResult);
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteUser(int id)
+        {
+            var deletedResult = await _userService.DeleteUser(id);
+
+            if (deletedResult == null)
+                return NotFound();
+
+            return Ok(deletedResult);
         }
     }
 }
