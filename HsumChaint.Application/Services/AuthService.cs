@@ -62,8 +62,10 @@ namespace HsumChaint.Application.Services
                     ContactPhoneNumber = reqModel.ContactPhoneNumber
                 });
 
+                bool hasMonasteryInfo = !string.IsNullOrEmpty(reqModel.MonasteryName) || !string.IsNullOrEmpty(reqModel.MonasteryAddress);
+
                 // Reigseter Monk Profile
-                if (reqModel.UserType == Common.CommonEnum.UserType.Monk && registerResponse.IsSuccess == true)
+                if (reqModel.UserType == Common.CommonEnum.UserType.Monk && registerResponse.IsSuccess == true && hasMonasteryInfo)
                 {
                     MonkProfile monkProfile = new MonkProfile();
 
@@ -79,7 +81,7 @@ namespace HsumChaint.Application.Services
                 }
                 else
                 {
-                    response.IsSuccess = registerResponse.IsSuccess; // false
+                    response.IsSuccess = registerResponse.IsSuccess;
                     response.Message = registerResponse.Message;
                 }
 
