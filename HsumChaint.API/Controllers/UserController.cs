@@ -59,5 +59,61 @@ namespace HsumChaint.API.Controllers
 
             return Ok(deletedResult);
         }
+
+        #region Invitation
+
+        // GET Invitations List from user
+        [HttpGet("{id}/invitations")]
+        public async Task<IActionResult> GetUserInvitationList(int id)
+        {
+            var invitationList = await _userService.GetUserInvitationList(id);
+
+            if (invitationList == null)
+                return NotFound();
+
+            return Ok(invitationList);
+        }
+
+        // GET List of Invited By Other User
+        [HttpGet("{id}/invited-by-list")]
+        public async Task<IActionResult> GetInvitedByOtherList(int id)
+        {
+            var invitedByOtherList = await _userService.GetInvitedByOtherList(id);
+
+            if (invitedByOtherList == null)
+                return NotFound();
+
+            return Ok(invitedByOtherList);
+        }
+
+        #endregion
+
+        #region Notification
+
+        // GET Invitations List for user
+        [HttpGet("{id}/notification")]
+        public async Task<IActionResult> GetUserNotificationList(int id)
+        {
+            var notificationList = await _userService.GetUserNotificationList(id);
+
+            if (notificationList == null)
+                return NotFound();
+
+            return Ok(notificationList);
+        }
+
+        // GET List of Invited By Other User
+        [HttpDelete("{id}/notification")]
+        public async Task<IActionResult> DeleteUserNotificationList(int id)
+        {
+            var deletedNotificationResult = await _userService.DeleteUserNotificationList(id);
+
+            if (deletedNotificationResult == null)
+                return NotFound();
+
+            return Ok(deletedNotificationResult);
+        }
+
+        #endregion
     }
 }

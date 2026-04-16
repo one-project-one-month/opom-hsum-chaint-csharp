@@ -34,6 +34,12 @@ namespace HsumChaint.Application.Mappings
                 .ForMember(dest => dest.NotificationId, opt => opt.MapFrom(src => src.Id))
                 .ForMember(dest => dest.IsDeleted, opt => opt.MapFrom(src => src.IsDelete ?? false));
 
+            CreateMap<Invitation, InvitationDto>();
+            CreateMap<InvitationDto, Invitation>();
+
+            CreateMap<Notification, NotificationDto>();
+            CreateMap<NotificationDto, Notification>();
+
             //CreateMap<UserDto, User>()
             //    .ForMember(dest => dest.Id, opt => opt.Ignore());
         }

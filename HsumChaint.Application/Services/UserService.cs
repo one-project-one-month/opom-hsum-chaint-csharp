@@ -104,5 +104,86 @@ namespace HsumChaint.Application.Services
             return response;
         }
         #endregion
+
+        #region Invitation
+        public async Task<ApplicationCommonResponseModel<List<InvitationDto>>> GetUserInvitationList(int id)
+        {
+            var response = new ApplicationCommonResponseModel<List<InvitationDto>>();
+            try
+            {
+                var addResponse = await _userRepository.GetUserInvitationList(id);
+
+                response.IsSuccess = addResponse.IsSuccess;
+                response.Message = addResponse.Message;
+                response.ListData = _mapper.Map<List<InvitationDto>>(addResponse.ListData);
+            }
+            catch (Exception ex)
+            {
+                response.IsSuccess = false;
+                response.Message = $"Application Layer Exception: {ex.Message}";
+            }
+            return response;
+        }
+
+        public async Task<ApplicationCommonResponseModel<List<InvitationDto>>> GetInvitedByOtherList(int id)
+        {
+            var response = new ApplicationCommonResponseModel<List<InvitationDto>>();
+            try
+            {
+                var addResponse = await _userRepository.GetInvitedByOtherList(id);
+
+                response.IsSuccess = addResponse.IsSuccess;
+                response.Message = addResponse.Message;
+                response.ListData = _mapper.Map<List<InvitationDto>>(addResponse.ListData);
+            }
+            catch (Exception ex)
+            {
+                response.IsSuccess = false;
+                response.Message = $"Application Layer Exception: {ex.Message}";
+            }
+            return response;
+        }
+        #endregion
+
+        #region Notification
+        public async Task<ApplicationCommonResponseModel<List<NotificationDto>>> GetUserNotificationList(int id)
+        {
+            var response = new ApplicationCommonResponseModel<List<NotificationDto>>();
+            try
+            {
+                var addResponse = await _userRepository.GetUserNotificationList(id);
+
+                response.IsSuccess = addResponse.IsSuccess;
+                response.Message = addResponse.Message;
+                response.ListData = _mapper.Map<List<NotificationDto>>(addResponse.ListData);
+            }
+            catch (Exception ex)
+            {
+                response.IsSuccess = false;
+                response.Message = $"Application Layer Exception: {ex.Message}";
+            }
+            return response;
+        }
+
+        public async Task<ApplicationCommonResponseModel<List<NotificationDto>>> DeleteUserNotificationList(int id)
+        {
+            var response = new ApplicationCommonResponseModel<List<NotificationDto>>();
+            try
+            {
+                var addResponse = await _userRepository.DeleteUserNotificationList(id);
+
+                response.IsSuccess = addResponse.IsSuccess;
+                response.Message = addResponse.Message;
+                response.Data = null; // No Need to return updated user data in this case
+            }
+            catch (Exception ex)
+            {
+                response.IsSuccess = false;
+                response.Message = $"Application Layer Exception: {ex.Message}";
+            }
+            return response;
+        }
+
+        #endregion
     }
 }
