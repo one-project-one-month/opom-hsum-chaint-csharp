@@ -125,7 +125,6 @@ namespace HsumChaint.Infrastructure.Repositories
 
                 if (existingUserResponse.Data is not null)
                 {
-                    var updatedUser = existingUserResponse.Data; // First get the existing user data
 
                     string errorMessage;
                     var validator = new UserValidation();
@@ -139,8 +138,13 @@ namespace HsumChaint.Infrastructure.Repositories
                         return response; // Exit early if validation fails   
                     }
 
-                    updatedUser = user; // Assign the new user data to the existing user object
-                    _context.Users.Update(updatedUser);
+                    existingUserResponse.Data.Name = user.Name;
+                    existingUserResponse.Data.PhoneNumber = user.PhoneNumber;
+                    existingUserResponse.Data.UserType = user.UserType;
+                    existingUserResponse.Data.Email = user.Email;
+                    existingUserResponse.Data.ContactPhoneNumber = user.ContactPhoneNumber;
+
+                    _context.Users.Update(existingUserResponse.Data);
                     var result = await _context.SaveChangesAsync();
 
                     if(result <= 0)
@@ -159,7 +163,7 @@ namespace HsumChaint.Infrastructure.Repositories
                 {
                     response.Data = null;
                     response.IsSuccess = false;
-                    response.Message = "The requested user data for update could not be found.";
+                    response.Message = "User not found";
                 }
             }
             catch (Exception ex)
@@ -173,5 +177,187 @@ namespace HsumChaint.Infrastructure.Repositories
         }
         #endregion
 
+        #region DeleteUser
+        public async Task<CommonResponseModel<User>> DeleteUser(int id)
+        {
+            var response = new CommonResponseModel<User>();
+
+            try
+            {
+
+                //User? user = await _context.Users.Where(user => user.IsDeleted == false && user.Id == id).FirstOrDefaultAsync();
+                User? user = await _context.Users.FindAsync(id);
+
+                if (user is not null)
+                {
+                    user.IsDeleted = true;
+                    user.UpdatedAt = DateTime.UtcNow;
+
+                    var result = await _context.SaveChangesAsync();
+
+                    if (result <= 0)
+                    {
+                        response.IsSuccess = false;
+                        response.Message = "Failed to delete user data.";
+                        return response; // Exit early if save operation fails
+                    }
+
+                    response.IsSuccess = true;
+                    response.Message = "User deleted successfully.";
+                }
+                else
+                {
+                    response.IsSuccess = true;
+                    response.Message = "User not found";
+                }
+
+            }
+            catch (Exception ex)
+            {
+                // T.B.D : Should I add null value Data
+                response.IsSuccess = false;
+                response.Message = $"Repo Layer  Exception :{ex.Message}";
+            }
+            return response;
+        }
+        #endregion
+
+        #region Invitation
+        public async Task<CommonResponseModel<List<Invitation>>> GetUserInvitationList(int id)
+        {
+            var response = new CommonResponseModel<List<Invitation>>();
+
+            try
+            {
+                List<Invitation> invitationList = await _context.Invitations.Where(invitation => invitation.InvitedUserId == id).ToListAsync(); // Get List of Invitation where user is inviting.
+
+                if (invitationList.Count() > 0)
+                {
+                    response.ListData = invitationList;
+                    response.IsSuccess = true;
+                    response.Message = "Successfully Retrieved Invitation Lists";
+                }
+                else
+                {
+                    response.ListData = invitationList;
+                    response.IsSuccess = true;
+                    response.Message = "Invitation list not found";
+                }
+            }
+            catch (Exception ex)
+            {
+                response.IsSuccess = false;
+                response.Message = $"Repo Layer  Exception :{ex.Message}";
+            }
+            return response;
+        }
+
+        public async Task<CommonResponseModel<List<Invitation>>> GetInvitedByOtherList(int id)
+        {
+            var response = new CommonResponseModel<List<Invitation>>();
+
+            try
+            {
+                List<Invitation> invitedByOtherList = await _context.Invitations.Where(invitation => invitation.InvitedById == id).ToListAsync(); // Get List of Invited By other user
+
+                if (invitedByOtherList.Count() > 0)
+                {
+                    response.ListData = invitedByOtherList;
+                    response.IsSuccess = true;
+                    response.Message = "Successfully Retrieved Invited Lists";
+                }
+                else
+                {
+                    response.ListData = invitedByOtherList;
+                    response.IsSuccess = true;
+                    response.Message = "Invited list not found";
+                }
+            }
+            catch (Exception ex)
+            {
+                response.IsSuccess = false;
+                response.Message = $"Repo Layer  Exception :{ex.Message}";
+            }
+            return response;
+        }
+        #endregion
+
+        #region Invitation
+        public async Task<CommonResponseModel<List<Notification>>> GetUserNotificationList(int id)
+        {
+            var response = new CommonResponseModel<List<Notification>>();
+
+            try
+            {
+                List<Notification> notificationList = await _context.Notifications.Where(notification => notification.UserId == id && notification.IsDelete == false).ToListAsync(); // Get List of Invitation where user is inviting.
+
+                if (notificationList.Count() > 0)
+                {
+                    response.ListData = notificationList;
+                    response.IsSuccess = true;
+                    response.Message = "Successfully Retrieved User's Notification Lists";
+                }
+                else
+                {
+                    response.ListData = notificationList;
+                    response.IsSuccess = true;
+                    response.Message = "User's Notification list not found";
+                }
+            }
+            catch (Exception ex)
+            {
+                response.IsSuccess = false;
+                response.Message = $"Repo Layer  Exception :{ex.Message}";
+            }
+            return response;
+        }
+
+        public async Task<CommonResponseModel<List<Notification>>> DeleteUserNotificationList(int id)
+        {
+            var response = new CommonResponseModel<List<Notification>>();
+
+            try
+            {
+
+                List<Notification>? notificationList = await _context.Notifications.Where(notification => notification.UserId == id && notification.IsDelete == false).ToListAsync();
+
+
+                if (notificationList is not null && notificationList.Count > 0)
+                {
+
+                    foreach (Notification notification in notificationList)
+                    {
+                        notification.IsDelete = true;
+                    }
+
+                    var result = await _context.SaveChangesAsync();
+
+                    if (result <= 0)
+                    {
+                        response.IsSuccess = false;
+                        response.Message = "Failed to delete user data.";
+                        return response; // Exit early if save operation fails
+                    }
+
+                    response.IsSuccess = true;
+                    response.Message = "User deleted successfully.";
+                }
+                else
+                {
+                    response.IsSuccess = true;
+                    response.Message = "User's Notification List not found";
+                }
+
+            }
+            catch (Exception ex)
+            {
+                // T.B.D : Should I add null value Data
+                response.IsSuccess = false;
+                response.Message = $"Repo Layer  Exception :{ex.Message}";
+            }
+            return response;
+        }
+
+        #endregion
     }
 }

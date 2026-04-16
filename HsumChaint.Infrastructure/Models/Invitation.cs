@@ -1,4 +1,5 @@
-﻿using System;
+﻿using HsumChaint.Common.CommonEnum;
+using System;
 using System.Collections.Generic;
 
 namespace HsumChaint.Infrastructure.Models;
@@ -13,9 +14,9 @@ public partial class Invitation
 
     public int? InvitedById { get; set; }
 
-    public string? Role { get; set; }
+    public MonasteryRole Role { get; set; }
 
-    public string? Status { get; set; }
+    public InvitationStatus Status { get; set; }
 
     public DateTime? CreatedAt { get; set; }
 }

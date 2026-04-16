@@ -38,19 +38,7 @@ namespace HsumChaint.API.Controllers
             return Ok(user);
         }
 
-        [HttpPost]
-        [Route("AddUser")]
-        public async Task<IActionResult> GetAddUser(UserDto reqModel)
-        {
-            var user = await _userService.AddUser(reqModel);
-
-            if (user == null)
-                return NotFound();
-
-            return Ok(user);
-        }
-
-        [HttpPut("{id}")]
+        [HttpPut]
         public async Task<IActionResult> PutUser(UserDto user)
         {
             var updatedResult = await _userService.PutUser(user);
@@ -58,7 +46,74 @@ namespace HsumChaint.API.Controllers
             if (updatedResult == null)
                 return NotFound();
 
-            return Ok(user);
+            return Ok(updatedResult);
         }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteUser(int id)
+        {
+            var deletedResult = await _userService.DeleteUser(id);
+
+            if (deletedResult == null)
+                return NotFound();
+
+            return Ok(deletedResult);
+        }
+
+        #region Invitation
+
+        // GET Invitations List from user
+        [HttpGet("{id}/invitations")]
+        public async Task<IActionResult> GetUserInvitationList(int id)
+        {
+            var invitationList = await _userService.GetUserInvitationList(id);
+
+            if (invitationList == null)
+                return NotFound();
+
+            return Ok(invitationList);
+        }
+
+        // GET List of Invited By Other User
+        [HttpGet("{id}/invited-by-list")]
+        public async Task<IActionResult> GetInvitedByOtherList(int id)
+        {
+            var invitedByOtherList = await _userService.GetInvitedByOtherList(id);
+
+            if (invitedByOtherList == null)
+                return NotFound();
+
+            return Ok(invitedByOtherList);
+        }
+
+        #endregion
+
+        #region Notification
+
+        // GET Invitations List for user
+        [HttpGet("{id}/notification")]
+        public async Task<IActionResult> GetUserNotificationList(int id)
+        {
+            var notificationList = await _userService.GetUserNotificationList(id);
+
+            if (notificationList == null)
+                return NotFound();
+
+            return Ok(notificationList);
+        }
+
+        // GET List of Invited By Other User
+        [HttpDelete("{id}/notification")]
+        public async Task<IActionResult> DeleteUserNotificationList(int id)
+        {
+            var deletedNotificationResult = await _userService.DeleteUserNotificationList(id);
+
+            if (deletedNotificationResult == null)
+                return NotFound();
+
+            return Ok(deletedNotificationResult);
+        }
+
+        #endregion
     }
 }

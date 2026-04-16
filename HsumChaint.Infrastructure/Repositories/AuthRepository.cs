@@ -26,6 +26,10 @@ namespace HsumChaint.Infrastructure.Repositories
 
                 await _dbContext.SaveChangesAsync();
 
+                response.Data = new User
+                {
+                    Id = requestModel.Id
+                };
                 response.IsSuccess = true;
                 response.Message = "Register Successful";
             }
@@ -37,6 +41,27 @@ namespace HsumChaint.Infrastructure.Repositories
 
             return response;
         }
+
+        public async Task<CommonResponseModel<MonkProfile>> RegisterMonkProfile(MonkProfile requestModel)
+        {
+            var response = new CommonResponseModel<MonkProfile>();
+            try
+            {
+                await _dbContext.MonkProfiles.AddAsync(requestModel);
+                await _dbContext.SaveChangesAsync();
+
+                response.IsSuccess = true;
+                response.Message = "Register Successful";
+            }
+            catch (Exception ex)
+            {
+                response.IsSuccess = false;
+                response.Message = ex.Message;
+            }
+
+            return response;
+        }
+
         #endregion
 
         #region GetUserByPhoneNumber

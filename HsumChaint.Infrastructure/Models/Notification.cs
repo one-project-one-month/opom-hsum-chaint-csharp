@@ -1,4 +1,5 @@
-﻿using System;
+﻿using HsumChaint.Common.CommonEnum;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -10,7 +11,7 @@ public partial class Notification
 
     public int? UserId { get; set; }
 
-    public string? Type { get; set; }
+    public NotificationType Type { get; set; }
 
     public string? Message { get; set; }
 

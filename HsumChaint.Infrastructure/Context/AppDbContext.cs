@@ -30,6 +30,8 @@ public partial class AppDbContext : DbContext
 
     public virtual DbSet<User> Users { get; set; }
 
+    public virtual DbSet<MonkProfile> MonkProfiles { get; set; }
+
     public virtual DbSet<UserSetting> UserSettings { get; set; }
 
 //    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -57,6 +59,8 @@ public partial class AppDbContext : DbContext
         {
             entity.HasKey(e => e.Id).HasName("PK__Invitati__3213E83FE0EC0065");
 
+            entity.ToTable("Invitation");
+
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.CreatedAt)
                 .HasColumnType("datetime")
@@ -66,6 +70,15 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.MonasterySpaceId).HasColumnName("monastery_space_id");
             entity.Property(e => e.Role).HasColumnName("role");
             entity.Property(e => e.Status).HasColumnName("status");
+        });
+
+        modelBuilder.Entity<Invitation>(entity =>
+        {
+            entity.Property(u => u.Role)
+                  .HasConversion<int>();
+
+            entity.Property(u => u.Status)
+                  .HasConversion<int>();
         });
 
         modelBuilder.Entity<MonasteryMember>(entity =>
@@ -98,16 +111,22 @@ public partial class AppDbContext : DbContext
         {
             entity.HasKey(e => e.Id).HasName("PK__Notifica__3213E83FC7D966AA");
 
+            entity.ToTable("Notification");
+
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.CreatedAt)
                 .HasColumnType("datetime")
-                .HasColumnName("CreatedAt");
-            entity.Property(e => e.IsRead).HasColumnName("IsRead");
-            entity.Property(e => e.Message).HasColumnName("Message");
-            entity.Property(e => e.Type).HasColumnName("Type");
-            entity.Property(e => e.UserId).HasColumnName("UserId");
-            entity.Property(e => e.IsDelete).HasColumnName("IsDelete");
+                .HasColumnName("created_at");
+            entity.Property(e => e.IsRead).HasColumnName("isRead");
+            entity.Property(e => e.Message).HasColumnName("message");
+            entity.Property(e => e.Type).HasColumnName("type");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.IsDelete).HasColumnName("isDelete");
         });
+
+        modelBuilder.Entity<Notification>()
+            .Property(u => u.Type)
+            .HasConversion<int>(); // maps enum to int automatically
 
         modelBuilder.Entity<RefreshToken>(entity =>
         {
@@ -135,21 +154,39 @@ public partial class AppDbContext : DbContext
 
             entity.ToTable("User");
 
-            entity.Property(e => e.ContactPhoneNumber).HasMaxLength(50);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.ContactPhoneNumber)
+                .HasMaxLength(50)
+                .HasColumnName("contact_phone");
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
-                .HasColumnType("datetime");
-            entity.Property(e => e.Email).HasMaxLength(255);
-            entity.Property(e => e.FcmToken).HasMaxLength(255);
-            entity.Property(e => e.IsDeleted).HasDefaultValueSql("'0'");
-            entity.Property(e => e.Name).HasMaxLength(255);
-            entity.Property(e => e.Password).HasMaxLength(255);
-            entity.Property(e => e.PhoneNumber).HasMaxLength(50);
+                .HasColumnType("datetime")
+                .HasColumnName("created_at");
+            entity.Property(e => e.Email)
+                .HasMaxLength(255)
+                .HasColumnName("email");;
+            entity.Property(e => e.FcmToken)
+                .HasMaxLength(255)
+                .HasColumnName("fcm_token");
+            entity.Property(e => e.IsDeleted)
+                .HasDefaultValueSql("'0'")
+                .HasColumnName("is_deleted");
+            entity.Property(e => e.Name)
+                .HasMaxLength(255)
+                .HasColumnName("name"); ;
+            entity.Property(e => e.Password)
+                .HasMaxLength(255)
+                .HasColumnName("password");
+            entity.Property(e => e.PhoneNumber)
+                .HasMaxLength(50)
+                .HasColumnName("phone");
             entity.Property(e => e.UpdatedAt)
                 .ValueGeneratedOnAddOrUpdate()
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
-                .HasColumnType("datetime");
-            entity.Property(e => e.UserType).HasMaxLength(255);
+                .HasColumnType("datetime")
+                .HasColumnName("updated_at");
+            entity.Property(e => e.UserType)
+                .HasColumnName("user_type");
         });
 
         modelBuilder.Entity<User>()
@@ -162,8 +199,14 @@ public partial class AppDbContext : DbContext
 
             entity.ToTable("MonkProfile");
 
-            entity.Property(e => e.MonasteryAddress).HasMaxLength(500);
-            entity.Property(e => e.MonasteryName).HasMaxLength(255);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.MonasteryAddress)
+                .HasMaxLength(500)
+                .HasColumnName("monastery_address");
+            entity.Property(e => e.MonasteryName)
+                .HasMaxLength(255)
+                .HasColumnName("monastery_name");
         });
 
         modelBuilder.Entity<UserSetting>(entity =>
