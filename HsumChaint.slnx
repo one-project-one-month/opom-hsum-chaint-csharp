@@ -8,7 +8,8 @@
     <File Path="README.md" />
   </Folder>
   <Project Path="HsumChaint.API/HsumChaint.API.csproj" Id="be5a77bd-e6e7-4111-b6ac-7577ea2ce4ec" />
-  <Project Path="HsumChaint.Application/HsumChaint.Application.csproj" Id="d7a2b77f-d6ec-481d-9b3d-c0eea48ae5a5" />
-  <Project Path="HsumChaint.Common/HsumChaint.Common.csproj" Id="ed342047-6023-46cc-8999-6c7b39e23501" />
-  <Project Path="HsumChaint.Infrastructure/HsumChaint.Infrastructure.csproj" />
+  <Project Path="HsumChaint.Domain/HsumChaint.Domain.csproj" Id="d7a2b77f-d6ec-481d-9b3d-c0eea48ae5a5" />
+  <Project Path="HsumChaint.Shared/HsumChaint.Shared.csproj" Id="ed342047-6023-46cc-8999-6c7b39e23501" />
+  <Project Path="HsumChaint.Database/HsumChaint.Database.csproj" />
+  <Project Path="HsumChaint.Tests/HsumChaint.Tests.csproj" Id="90584d07-4c39-4812-85f3-5c8792fa2c9c" />
 </Solution>
