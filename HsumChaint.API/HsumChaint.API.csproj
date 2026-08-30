@@ -7,13 +7,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="16.1.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.5" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.3" />
     <PackageReference Include="Scalar.AspNetCore" Version="2.13.1" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\HsumChaint.Application\HsumChaint.Application.csproj" />
-    <ProjectReference Include="..\HsumChaint.Infrastructure\HsumChaint.Infrastructure.csproj" />
+    <ProjectReference Include="..\HsumChaint.Domain\HsumChaint.Domain.csproj" />
+    <ProjectReference Include="..\HsumChaint.Database\HsumChaint.Database.csproj" />
+    <ProjectReference Include="..\HsumChaint.Shared\HsumChaint.Shared.csproj" />
   </ItemGroup>
 
 </Project>
