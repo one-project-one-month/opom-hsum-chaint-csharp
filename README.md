@@ -15,6 +15,16 @@ This refactor keeps all public API contracts (routes, DTOs, and HTTP response be
 - `HsumChaint.Domain/Features/{Auth,User,Notification}/...`
 - `HsumChaint.Database/Models/...`
 
+### Donation management scope
+HsumChaint is now shaped as a mobile-ready backend for monastery donation management:
+- users can register, login, and refresh JWT tokens
+- monastery owners can create monastery spaces and manage members
+- owners/admins can invite existing users into monastery roles
+- donors can submit donation requests
+- monastery owners/admins can manually record donations and review requests
+- owners/admins/editors can schedule pickup/dropoff and complete donations
+- donation lifecycle changes create database notifications and optionally send Firebase push when a user has an FCM token
+
 ### Cross-layer boundaries
 - API handles HTTP entry only and delegates to Domain services.
 - Domain handles feature orchestration, validation, auth/token flow, notification sending, and DTO-entity mapping.
@@ -77,11 +87,48 @@ flowchart LR
 - Stage-specific override values: `HsumChaint.API/Config/custom-settings-<stage>.json`
 - Environment values continue to work through standard .NET configuration providers.
 
-## 4) Development commands
+### Database script
+- Complete local database setup is captured in:
+  - `HsumChaint.Database/Scripts/000_create_local_database.sql`
+- One round of local test seed data is captured in:
+  - `HsumChaint.Database/Scripts/001_seed_test_data.sql`
+- Donation-management schema additions for an existing older database are captured in:
+  - `HsumChaint.Database/Scripts/20260831_complete_donation_management.sql`
+- This project continues to follow the database-first approach; run the complete SQL script against local MySQL before using the API, then run the seed script when you need sample users, monastery, members, donations, invitations, notifications, and settings.
+
+## 4) Mobile API summary
+
+### Auth
+- `POST /api/v1/Auth/register`
+- `POST /api/v1/Auth/login`
+- `POST /api/v1/Auth/refresh-token`
+
+### Monasteries
+- `POST /api/v1/monasteries`
+- `GET /api/v1/monasteries/mine`
+- `GET /api/v1/monasteries/{id}`
+- `PUT /api/v1/monasteries/{id}`
+- `POST /api/v1/monasteries/{id}/invitations`
+- `POST /api/v1/monasteries/invitations/{invitationId}/respond`
+- `GET /api/v1/monasteries/{id}/members`
+- `PUT /api/v1/monasteries/{id}/members/{memberUserId}/role`
+- `DELETE /api/v1/monasteries/{id}/members/{memberUserId}`
+
+### Donations
+- `POST /api/v1/donations/request`
+- `POST /api/v1/donations/manual`
+- `GET /api/v1/donations`
+- `GET /api/v1/donations/{id}`
+- `PUT /api/v1/donations/{id}/review`
+- `PUT /api/v1/donations/{id}/schedule`
+- `PUT /api/v1/donations/{id}/complete`
+- `PUT /api/v1/donations/{id}/cancel`
+
+## 5) Development commands
 - Build: `dotnet build HsumChaint.slnx`
 - Tests: `dotnet test HsumChaint.Tests/HsumChaint.Tests.csproj`
 - Run API: `dotnet run --project HsumChaint.API`
 
-## 5) Legacy notes
+## 6) Legacy notes
 - `dotnet ef dbcontext scaffold ...` command kept below for database scaffolding tasks.
 - `docker compose up --build`

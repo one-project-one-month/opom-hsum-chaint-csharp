@@ -1,5 +1,7 @@
 using HsumChaint.Database.Models;
 using HsumChaint.Domain.Features.Auth.ServiceInterfaces;
+using HsumChaint.Domain.Features.Donation.ServiceInterfaces;
+using HsumChaint.Domain.Features.Monastery.ServiceInterfaces;
 using HsumChaint.Domain.Features.Notification.ServiceInterfaces;
 using HsumChaint.Domain.Features.User.ServiceInterfaces;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -43,6 +45,8 @@ public class StartupTests
         Assert.NotNull(serviceProvider.GetRequiredService<IAuthService>());
         Assert.NotNull(serviceProvider.GetRequiredService<IUserService>());
         Assert.NotNull(serviceProvider.GetRequiredService<INotificationService>());
+        Assert.NotNull(serviceProvider.GetRequiredService<IMonasteryService>());
+        Assert.NotNull(serviceProvider.GetRequiredService<IDonationService>());
     }
 
     [Fact]
@@ -67,5 +71,17 @@ public class StartupTests
         var response = await client.GetAsync("/openapi/v1.json");
 
         Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Startup_DonationAndMonasteryEndpoints_RequireAuthentication()
+    {
+        using var client = _factory.CreateClient();
+
+        var donationsResponse = await client.GetAsync("/api/v1/donations");
+        var monasteriesResponse = await client.GetAsync("/api/v1/monasteries/mine");
+
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, donationsResponse.StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, monasteriesResponse.StatusCode);
     }
 }

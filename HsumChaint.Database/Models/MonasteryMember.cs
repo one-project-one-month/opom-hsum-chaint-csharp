@@ -1,3 +1,4 @@
+using HsumChaint.Shared.CommonEnum;
 using System;
 using System.Collections.Generic;
 
@@ -11,7 +12,7 @@ public partial class MonasteryMember
 
     public int? MonasterySpaceId { get; set; }
 
-    public string? Role { get; set; }
+    public MonasteryRole Role { get; set; }
 
     public bool? IsOwner { get; set; }
 }

@@ -125,7 +125,7 @@ namespace HsumChaint.Domain.Features.Auth.Services
                     return response;
                 }
 
-                string Token = this.GenerateToken(existingUser.PhoneNumber, existingUser.UserType.ToString());
+                string Token = this.GenerateToken(existingUser.Id, existingUser.PhoneNumber, existingUser.UserType.ToString());
                 string refreshToken = await this.GenerateAndSaveRefreshToken(new GenerateRefreshTokenDto { UserId = existingUser.Id });
 
                 response.IsSuccess = true;
@@ -168,7 +168,7 @@ namespace HsumChaint.Domain.Features.Auth.Services
                         return response;
                     }
 
-                    string Token = this.GenerateToken(existingUser.PhoneNumber, existingUser.UserType.ToString());
+                    string Token = this.GenerateToken(existingUser.Id, existingUser.PhoneNumber, existingUser.UserType.ToString());
                     string refreshToken = await this.GenerateAndSaveRefreshToken(new GenerateRefreshTokenDto { UserId = existingUser.Id });
 
                     response.IsSuccess = true;
@@ -198,10 +198,11 @@ namespace HsumChaint.Domain.Features.Auth.Services
         #endregion
 
         #region GenerateToken
-        private string GenerateToken(string phoneNumber, string userType)
+        private string GenerateToken(int userId, string phoneNumber, string userType)
         {
             var claims = new List<Claim>
             {
+                new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
                 new Claim(ClaimTypes.MobilePhone, phoneNumber),
                 new Claim(ClaimTypes.Role, userType)
             };

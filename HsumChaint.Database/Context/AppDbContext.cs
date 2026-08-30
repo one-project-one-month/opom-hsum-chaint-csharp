@@ -48,11 +48,34 @@ public partial class AppDbContext : DbContext
 
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.DonationType).HasColumnName("donation_type");
+            entity.Property(e => e.DonationTypeValue).HasColumnName("donation_type_value");
+            entity.Property(e => e.CustomDonationType).HasColumnName("custom_donation_type");
             entity.Property(e => e.DonorId).HasColumnName("donor_id");
             entity.Property(e => e.DonorName).HasColumnName("donor_name");
             entity.Property(e => e.MonasterySpaceId).HasColumnName("monastery_space_id");
+            entity.Property(e => e.Note).HasColumnName("note");
+            entity.Property(e => e.Amount).HasColumnName("amount").HasPrecision(18, 2);
+            entity.Property(e => e.Quantity).HasColumnName("quantity").HasPrecision(18, 2);
             entity.Property(e => e.ReviewerId).HasColumnName("reviewer_id");
             entity.Property(e => e.Status).HasColumnName("status");
+            entity.Property(e => e.StatusValue).HasColumnName("status_value");
+            entity.Property(e => e.CreatedAt)
+                .HasColumnType("datetime")
+                .HasColumnName("created_at");
+            entity.Property(e => e.ReviewedAt)
+                .HasColumnType("datetime")
+                .HasColumnName("reviewed_at");
+            entity.Property(e => e.PickupTime)
+                .HasColumnType("datetime")
+                .HasColumnName("pickup_time");
+            entity.Property(e => e.DropoffTime)
+                .HasColumnType("datetime")
+                .HasColumnName("dropoff_time");
+            entity.Property(e => e.CompletedAt)
+                .HasColumnType("datetime")
+                .HasColumnName("completed_at");
+            entity.Property(e => e.DonationTypeValue).HasConversion<int>();
+            entity.Property(e => e.StatusValue).HasConversion<int>();
         });
 
         modelBuilder.Entity<Invitation>(entity =>
@@ -92,6 +115,7 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.MonasterySpaceId).HasColumnName("monastery_space_id");
             entity.Property(e => e.Role).HasColumnName("role");
             entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.Role).HasConversion<int>();
         });
 
         modelBuilder.Entity<MonasterySpace>(entity =>
