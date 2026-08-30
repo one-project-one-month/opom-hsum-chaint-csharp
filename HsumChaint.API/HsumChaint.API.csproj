@@ -14,8 +14,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\HsumChaint.Application\HsumChaint.Application.csproj" />
-    <ProjectReference Include="..\HsumChaint.Common\HsumChaint.Common.csproj" />
+    <ProjectReference Include="..\HsumChaint.Domain\HsumChaint.Domain.csproj" />
+    <ProjectReference Include="..\HsumChaint.Database\HsumChaint.Database.csproj" />
+    <ProjectReference Include="..\HsumChaint.Shared\HsumChaint.Shared.csproj" />
   </ItemGroup>
 
 </Project>
