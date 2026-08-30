@@ -3,6 +3,7 @@ using HsumChaint.Database.Models;
 using HsumChaint.Domain.Features.Notification.DTOs;
 using HsumChaint.Domain.Features.Notification.Providers;
 using HsumChaint.Domain.Features.Notification.ServiceInterfaces;
+using Microsoft.EntityFrameworkCore;
 using NotificationEntity = HsumChaint.Database.Models.Notification;
 
 namespace HsumChaint.Domain.Features.Notification.Services
@@ -79,19 +80,18 @@ namespace HsumChaint.Domain.Features.Notification.Services
             try
             {
                 #region Check If User Exists
-                //var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == requestModel.UserId && x.IsDeleted == false);
-                //if (user == null)
-                //{
-                //    response.IsSuccess = false;
-                //    response.Message = "User not found";
+                var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == requestModel.UserId && x.IsDeleted == false);
+                if (user == null)
+                {
+                    response.IsSuccess = false;
+                    response.Message = "User not found";
 
-                //    return response;
-                //}
+                    return response;
+                }
                 #endregion
 
                 #region Get FCM token and Store Notification into DB
-                var deviceFcmToken = "cXHoVuz38pPly3vAQxJjY9:APA91bHLmbx-5Zx8WsazisdRtHqUCgeVkrve5kEKrDf83xt4WzpS9h2dQ_uHqz5Z37loV1xI9vc5UEcXTHxDjAiYSu9G5HxSwqgefEztY0GZLFV1cnXH1nc";
-                //var deviceFcmToken = user.FcmToken;
+                var deviceFcmToken = user.FcmToken;
 
                 var notification = _mapper.Map<NotificationEntity>(requestModel);
 
@@ -105,7 +105,7 @@ namespace HsumChaint.Domain.Features.Notification.Services
                 #endregion
 
                 #region Send Notification
-                if (!string.IsNullOrEmpty(deviceFcmToken) && notification != null)
+                if (!string.IsNullOrWhiteSpace(deviceFcmToken) && notification != null)
                 {
                     var title = GetTitleForType(requestModel.NotificationType);
 

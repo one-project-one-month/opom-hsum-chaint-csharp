@@ -17,6 +17,17 @@ public class NotificationServiceTests
     public async Task SendNotificationAndStore_ReturnsSuccess_WhenNotificationCanBeCreated()
     {
         await using var dbContext = CreateDbContext();
+        dbContext.Users.Add(new HsumChaint.Database.Models.User
+        {
+            Id = 1,
+            Name = "Donor",
+            PhoneNumber = "091111111",
+            Password = "pw",
+            UserType = UserType.User,
+            IsDeleted = false
+        });
+        await dbContext.SaveChangesAsync();
+
         var notificationProvider = new Mock<IFirebaseNotificationProvider>();
         var notificationService = new NotificationServices(dbContext, notificationProvider.Object, CreateMapper().Object);
 
@@ -35,7 +46,7 @@ public class NotificationServiceTests
             It.IsAny<string>(),
             It.IsAny<string?>(),
             It.IsAny<string?>(),
-            It.IsAny<Dictionary<string, string>>()), Times.Once);
+            It.IsAny<Dictionary<string, string>>()), Times.Never);
     }
 
     [Fact]

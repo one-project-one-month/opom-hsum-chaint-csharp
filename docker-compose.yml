@@ -8,17 +8,17 @@ services:
       - "8081:8081"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Server=db;Database={MYSQL_DATABASE};User={MYSQL_USER};Password={MYSQL_PASSWORD};
+      - ConnectionStrings__DefaultConnection=Server=db;Database=${MYSQL_DATABASE:-hsumchaint_db};User=${MYSQL_USER:-root};Password=${MYSQL_PASSWORD:-sasa1234};
 
   db:
     image: mysql:8.0
     ports:
       - "3307:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-sasa1234}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-hsumchaint_db}
+      MYSQL_USER: ${MYSQL_USER:-hsumchaint}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-sasa1234}
     volumes:
       - db_data:/var/lib/mysql
 
