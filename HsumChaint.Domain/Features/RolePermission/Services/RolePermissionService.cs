@@ -1,3 +1,4 @@
+using HsumChaint.Shared;
 using HsumChaint.Database.Models;
 using HsumChaint.Domain.Features.RolePermission.DTOs;
 using HsumChaint.Domain.Features.RolePermission.ServiceInterfaces;
@@ -11,22 +12,32 @@ public class RolePermissionService(AppDbContext db) : IRolePermissionService
     private IQueryable<Role> ActiveRoles => db.Roles.Where(r => !r.IsDeleted);
     private IQueryable<Role> RolesWithPermissions => ActiveRoles.Include(r => r.RolePermissions).ThenInclude(rp => rp.Permission);
 
-    public async Task<ApplicationCommonResponseModel<List<RoleDto>>> GetRoles()
+    public async Task<PagedResult<RoleDto>> GetRoles(PaginationRequest? pagination = null)
     {
-        var roles = (await RolesWithPermissions.AsNoTracking().OrderBy(r => r.Name).ToListAsync()).Select(Map).ToList();
-        return new() { IsSuccess = true, ListData = roles, Message = "Roles retrieved successfully." };
+        var pageNumber = pagination?.PageNumber ?? 1;
+        var pageSize = pagination?.PageSize ?? 10;
+        if (pageNumber < 1 || pageSize < 1 || ((long)pageNumber - 1) * pageSize > int.MaxValue)
+        {
+            return PagedResult<RoleDto>.Failure("Page number and page size must be positive and within the supported range.");
+        }
+
+        var query = RolesWithPermissions.AsNoTracking();
+        var totalCount = await query.CountAsync();
+        var roles = (await query.OrderBy(r => r.Name).ThenBy(r => r.Id)
+            .Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync()).Select(Map).ToList();
+        return PagedResult<RoleDto>.Success(roles, new Pagination(pageNumber, pageSize, totalCount), "Roles retrieved successfully.");
     }
 
-    public async Task<ApplicationCommonResponseModel<RoleDto>> GetRoleById(int id)
+    public async Task<Result<RoleDto>> GetRoleById(int id)
     {
         var role = await RolesWithPermissions.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id);
-        return role == null ? Fail<RoleDto>("Role not found.") : Success(Map(role));
+        return role == null ? Result<RoleDto>.Failure("Role not found.") : Result<RoleDto>.Success(Map(role), "Successful.");
     }
 
-    public async Task<ApplicationCommonResponseModel<RoleDto>> CreateRole(CreateRoleRequestDto request)
+    public async Task<Result<RoleDto>> CreateRole(CreateRoleRequestDto request)
     {
         var error = await Validate(request.Name, request.PermissionIds);
-        if (error != null) return Fail<RoleDto>(error);
+        if (error != null) return Result<RoleDto>.Failure(error);
         var role = new Role { Name = request.Name.Trim() };
         foreach (var id in request.PermissionIds.Distinct())
             role.RolePermissions.Add(new RolePermissionEntity { PermissionId = id });
@@ -35,51 +46,61 @@ public class RolePermissionService(AppDbContext db) : IRolePermissionService
         return await GetRoleById(role.Id);
     }
 
-    public async Task<ApplicationCommonResponseModel<RoleDto>> UpdateRole(int id, UpdateRoleRequestDto request)
+    public async Task<Result<RoleDto>> UpdateRole(int id, UpdateRoleRequestDto request)
     {
         var role = await RolesWithPermissions.FirstOrDefaultAsync(r => r.Id == id);
-        if (role == null) return Fail<RoleDto>("Role not found.");
+        if (role == null) return Result<RoleDto>.Failure("Role not found.");
         var error = await Validate(request.Name, request.PermissionIds, id);
-        if (error != null) return Fail<RoleDto>(error);
+        if (error != null) return Result<RoleDto>.Failure(error);
         if (IsAdmin(role) && (request.Name.Trim() != role.Name || await StripsAdminPermissions(role, request.PermissionIds)))
-            return Fail<RoleDto>("The system Admin role cannot be renamed or have permissions removed.");
+            return Result<RoleDto>.Failure("The system Admin role cannot be renamed or have permissions removed.");
         role.Name = request.Name.Trim();
         ReplacePermissions(role, request.PermissionIds);
         await db.SaveChangesAsync();
         return await GetRoleById(id);
     }
 
-    public async Task<ApplicationCommonResponseModel<bool>> DeleteRole(int id)
+    public async Task<Result<bool>> DeleteRole(int id)
     {
         var role = await ActiveRoles.FirstOrDefaultAsync(r => r.Id == id);
-        if (role == null) return Fail<bool>("Role not found.");
-        if (IsAdmin(role)) return Fail<bool>("The system Admin role cannot be deleted.");
+        if (role == null) return Result<bool>.Failure("Role not found.");
+        if (IsAdmin(role)) return Result<bool>.Failure("The system Admin role cannot be deleted.");
         if (await db.Users.AnyAsync(u => u.RoleId == id && u.IsDeleted == false)
             || await db.MonasteryMembers.AnyAsync(m => m.RoleId == id)
             || await db.Invitations.AnyAsync(i => i.RoleId == id && i.Status == HsumChaint.Shared.CommonEnum.InvitationStatus.Pending))
-            return Fail<bool>("Role is assigned to users, members or pending invitations.");
+            return Result<bool>.Failure("Role is assigned to users, members or pending invitations.");
         role.IsDeleted = true;
         await db.SaveChangesAsync();
-        return Success(true);
+        return Result<bool>.Success(true, "Successful.");
     }
 
-    public async Task<ApplicationCommonResponseModel<List<PermissionDto>>> GetPermissions() => new()
+    public async Task<PagedResult<PermissionDto>> GetPermissions(PaginationRequest? pagination = null)
     {
-        IsSuccess = true,
-        ListData = await db.Permissions.Where(p => !p.IsDeleted).OrderBy(p => p.Name)
-            .Select(p => new PermissionDto { Id = p.Id, Name = p.Name }).ToListAsync()
-    };
+        var pageNumber = pagination?.PageNumber ?? 1;
+        var pageSize = pagination?.PageSize ?? 10;
+        if (pageNumber < 1 || pageSize < 1 || ((long)pageNumber - 1) * pageSize > int.MaxValue)
+        {
+            return PagedResult<PermissionDto>.Failure("Page number and page size must be positive and within the supported range.");
+        }
 
-    public async Task<ApplicationCommonResponseModel<bool>> AssignPermissions(AssignRolePermissionsRequestDto request)
+        var query = db.Permissions.AsNoTracking().Where(p => !p.IsDeleted);
+        var totalCount = await query.CountAsync();
+        var permissions = await query.OrderBy(p => p.Name).ThenBy(p => p.Id)
+            .Skip((pageNumber - 1) * pageSize).Take(pageSize)
+            .Select(p => new PermissionDto { Id = p.Id, Name = p.Name }).ToListAsync();
+        return PagedResult<PermissionDto>.Success(permissions, new Pagination(pageNumber, pageSize, totalCount), "Permissions retrieved successfully.");
+    }
+
+    public async Task<Result<bool>> AssignPermissions(AssignRolePermissionsRequestDto request)
     {
         var role = await RolesWithPermissions.FirstOrDefaultAsync(r => r.Id == request.RoleId);
-        if (role == null) return Fail<bool>("Role not found.");
-        if (!await ValidPermissions(request.PermissionIds)) return Fail<bool>("One or more permissions are invalid or inactive.");
+        if (role == null) return Result<bool>.Failure("Role not found.");
+        if (!await ValidPermissions(request.PermissionIds)) return Result<bool>.Failure("One or more permissions are invalid or inactive.");
         if (IsAdmin(role) && await StripsAdminPermissions(role, request.PermissionIds))
-            return Fail<bool>("The system Admin role cannot have permissions removed.");
+            return Result<bool>.Failure("The system Admin role cannot have permissions removed.");
         ReplacePermissions(role, request.PermissionIds);
         await db.SaveChangesAsync();
-        return Success(true);
+        return Result<bool>.Success(true, "Successful.");
     }
 
     public async Task<List<string>> GetUserPermissions(int userId) => await (
@@ -125,6 +146,4 @@ public class RolePermissionService(AppDbContext db) : IRolePermissionService
             .Select(rp => new PermissionDto { Id = rp.PermissionId, Name = rp.Permission.Name }).OrderBy(p => p.Name).ToList()
     };
 
-    private static ApplicationCommonResponseModel<T> Fail<T>(string message) => new() { IsSuccess = false, Message = message };
-    private static ApplicationCommonResponseModel<T> Success<T>(T data) => new() { IsSuccess = true, Data = data, Message = "Successful." };
 }

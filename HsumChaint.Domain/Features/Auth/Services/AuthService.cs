@@ -1,3 +1,4 @@
+using HsumChaint.Shared;
 using HsumChaint.Database.Models;
 using HsumChaint.Domain.Features.Auth.DTOs;
 using HsumChaint.Domain.Features.Auth.ServiceInterfaces;
@@ -31,16 +32,13 @@ namespace HsumChaint.Domain.Features.Auth.Services
         }
 
         #region Register
-        public async Task<ApplicationCommonResponseModel<RegisterResponseDto>> Register(RegisterRequestDto reqModel)
+        public async Task<Result> Register(RegisterRequestDto reqModel)
         {
-            var response = new ApplicationCommonResponseModel<RegisterResponseDto>();
             try
             {
                 if (string.IsNullOrWhiteSpace(reqModel.Name) || string.IsNullOrWhiteSpace(reqModel.PhoneNumber) || string.IsNullOrWhiteSpace(reqModel.Password))
                 {
-                    response.IsSuccess = false;
-                    response.Message = "Name, phone number and password are required.";
-                    return response;
+                    return Result.Failure("Name, phone number and password are required.");
                 }
                 var existingUser = await _dbContext.Users.Include(u => u.Role)
                     .FirstOrDefaultAsync(x => x.PhoneNumber == reqModel.PhoneNumber && x.IsDeleted == false);
@@ -48,18 +46,14 @@ namespace HsumChaint.Domain.Features.Auth.Services
                 #region Phone Number Duplicate validation
                 if (existingUser != null)
                 {
-                    response.IsSuccess = false;
-                    response.Message = "User with this phone number already exists";
-                    return response;
+                    return Result.Failure("User with this phone number already exists");
                 }
                 #endregion
 
                 var selectedRole = await _dbContext.Roles.FirstOrDefaultAsync(r => r.Id == reqModel.RoleId && !r.IsDeleted);
                 if (selectedRole == null)
                 {
-                    response.IsSuccess = false;
-                    response.Message = "Role not found.";
-                    return response;
+                    return Result.Failure("Role not found.");
                 }
                 UserEntity user = new UserEntity();
                 var hashedPassword = _passwordHasher.HashPassword(user, reqModel.Password);
@@ -90,31 +84,20 @@ namespace HsumChaint.Domain.Features.Auth.Services
                     });
                     await _dbContext.SaveChangesAsync();
 
-                    response.IsSuccess = true;
-                    response.Message = "Register Successful";
-                }
-                else
-                {
-                    response.IsSuccess = true;
-                    response.Message = "Register Successful";
                 }
 
-                return response;
+                return Result.Success("Register Successful");
             }
             catch (Exception ex)
             {
-                response.IsSuccess = false;
-                response.Message = $"application layer err: {ex.Message} {ex.InnerException}";
+                return Result.Failure($"application layer err: {ex.Message} {ex.InnerException}");
             }
-            return response;
         }
         #endregion
 
         #region Login
-        public async Task<ApplicationCommonResponseModel<LoginResponseDto>> Login(LoginRequestDto reqModel)
+        public async Task<Result<LoginResponseDto>> Login(LoginRequestDto reqModel)
         {
-            var response = new ApplicationCommonResponseModel<LoginResponseDto>();
-
             try
             {
                 var existingUser = await _dbContext.Users.Include(u => u.Role)
@@ -122,27 +105,21 @@ namespace HsumChaint.Domain.Features.Auth.Services
 
                 if (existingUser == null || existingUser.Role == null || existingUser.Role.IsDeleted)
                 {
-                    response.IsSuccess = false;
-                    response.Message = "Phone number or password incorrect!";
-                    return response;
+                    return Result<LoginResponseDto>.Failure("Phone number or password incorrect!");
                 }
 
                 UserEntity user = new UserEntity();
                 if (_passwordHasher.VerifyHashedPassword(user, existingUser.Password, reqModel.Password)
                     == PasswordVerificationResult.Failed)
                 {
-                    response.IsSuccess = false;
-                    response.Message = "Phone number or password incorrect!";
-                    return response;
+                    return Result<LoginResponseDto>.Failure("Phone number or password incorrect!");
                 }
 
                 var permissions = await _rolePermissionService.GetUserPermissions(existingUser.Id);
                 string Token = this.GenerateToken(existingUser.Id, existingUser.PhoneNumber, existingUser.Role.Name, permissions);
                 string refreshToken = await this.GenerateAndSaveRefreshToken(new GenerateRefreshTokenDto { UserId = existingUser.Id });
 
-                response.IsSuccess = true;
-                response.Message = "Login Successful";
-                response.Data = new LoginResponseDto
+                return Result<LoginResponseDto>.Success(new LoginResponseDto
                 {
                     AccessToken = Token,
                     RoleId = existingUser.RoleId,
@@ -150,22 +127,18 @@ namespace HsumChaint.Domain.Features.Auth.Services
                     Permissions = permissions,
                     ID = existingUser.Id,
                     RefreshToken = refreshToken
-                };
+                }, "Login Successful");
             }
             catch (Exception ex)
             {
-                response.IsSuccess = false;
-                response.Message = $"Application layer err: {ex.Message} {ex.InnerException}";
+                return Result<LoginResponseDto>.Failure($"Application layer err: {ex.Message} {ex.InnerException}");
             }
-            return response;
         }
         #endregion
 
         #region RefreshTokens
-        public async Task<ApplicationCommonResponseModel<LoginResponseDto>> RefreshTokens(RefreshTokenRequestDto request)
+        public async Task<Result<LoginResponseDto>> RefreshTokens(RefreshTokenRequestDto request)
         {
-            var response = new ApplicationCommonResponseModel<LoginResponseDto>();
-
             try
             {
                 var isValidRefreshToken = await this.IsValidRefreshToken(request.UserId, request.RefreshToken);
@@ -177,18 +150,14 @@ namespace HsumChaint.Domain.Features.Auth.Services
 
                     if (existingUser == null || existingUser.Role == null || existingUser.Role.IsDeleted)
                     {
-                        response.IsSuccess = false;
-                        response.Message = "User not found";
-                        return response;
+                        return Result<LoginResponseDto>.Failure("User not found");
                     }
 
                     var permissions = await _rolePermissionService.GetUserPermissions(existingUser.Id);
                     string Token = this.GenerateToken(existingUser.Id, existingUser.PhoneNumber, existingUser.Role.Name, permissions);
                     string refreshToken = await this.GenerateAndSaveRefreshToken(new GenerateRefreshTokenDto { UserId = existingUser.Id });
 
-                    response.IsSuccess = true;
-                    response.Message = "Successful";
-                    response.Data = new LoginResponseDto
+                    return Result<LoginResponseDto>.Success(new LoginResponseDto
                     {
                         AccessToken = Token,
                         RoleId = existingUser.RoleId,
@@ -196,21 +165,17 @@ namespace HsumChaint.Domain.Features.Auth.Services
                         Permissions = permissions,
                         ID = existingUser.Id,
                         RefreshToken = refreshToken
-                    };
+                    }, "Successful");
                 }
                 else
                 {
-                    response.IsSuccess = false;
-                    response.Message = "Invalid or expired Refresh Token";
+                    return Result<LoginResponseDto>.Failure("Invalid or expired Refresh Token");
                 }
             }
             catch (Exception ex)
             {
-                response.IsSuccess = false;
-                response.Message = $"application layer err: {ex.Message}";
+                return Result<LoginResponseDto>.Failure($"application layer err: {ex.Message}");
             }
-
-            return response;
         }
         #endregion
 

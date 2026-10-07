@@ -1,3 +1,4 @@
+using HsumChaint.API.Extensions;
 using HsumChaint.Domain.Features.Notification.DTOs;
 using HsumChaint.Domain.Features.Notification.ServiceInterfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -30,12 +31,7 @@ namespace HsumChaint.API.Features.Notification.Controllers
             
             var notiResponse = await _notificationService.SendNotificationAndStore(requestModel);
 
-            if (notiResponse.IsSuccess == true)
-            {
-                return Ok(notiResponse);
-            }
-
-            return BadRequest(notiResponse);
+            return notiResponse.ToActionResult();
         }
 
         [Route("read-noti")]
@@ -49,12 +45,7 @@ namespace HsumChaint.API.Features.Notification.Controllers
 
             var response = await _notificationService.ReadNotification(requestModel);
 
-            if (response.IsSuccess == true)
-            {
-                return Ok(response);
-            }
-
-            return BadRequest(response);
+            return response.ToActionResult();
         }
 
         [Route("delete")]
@@ -68,12 +59,7 @@ namespace HsumChaint.API.Features.Notification.Controllers
 
             var response = await _notificationService.DeleteNotification(requestModel);
 
-            if (response.IsSuccess == true)
-            {
-                return Ok(response);
-            }
-
-            return BadRequest(response);
+            return response.ToActionResult();
         }
 
         

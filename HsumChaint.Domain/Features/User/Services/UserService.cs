@@ -1,3 +1,4 @@
+using HsumChaint.Shared;
 using HsumChaint.Database.Models;
 using HsumChaint.Domain.Features.User.DTOs;
 using HsumChaint.Domain.Features.User.ServiceInterfaces;
@@ -17,275 +18,196 @@ namespace HsumChaint.Domain.Features.User.Services
         }
 
         #region GetUserList
-        public async Task<ApplicationCommonResponseModel<List<UserDto>>> GetAllUsers()
+        public async Task<PagedResult<UserDto>> GetAllUsers(PaginationRequest? pagination = null)
         {
-            var response = new ApplicationCommonResponseModel<List<UserDto>>();
+            var pageNumber = pagination?.PageNumber ?? 1;
+            var pageSize = pagination?.PageSize ?? 10;
+            if (pageNumber < 1 || pageSize < 1 || ((long)pageNumber - 1) * pageSize > int.MaxValue)
+            {
+                return PagedResult<UserDto>.Failure("Page number and page size must be positive and within the supported range.");
+            }
+
             try
             {
-                List<UserEntity> userList = await _context.Users.Include(u => u.Role)
-                    .AsNoTracking()
-                    .Where(user => user.IsDeleted == false)
-                    .OrderBy(user => user.Id)
+                var query = _context.Users.Include(u => u.Role).AsNoTracking().Where(u => u.IsDeleted == false);
+                var totalCount = await query.CountAsync();
+                var items = await query.OrderBy(x => x.Id)
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
                     .ToListAsync();
-
-                response.ListData = userList.Select(MapToDto).ToList();
-
-                response.IsSuccess = true;
-                response.Message = userList.Count > 0 ? "Successfully Retrieved User Lists" : "User list not found";
+                var data = items.Select(MapToDto).ToList();
+                return PagedResult<UserDto>.Success(data, new Pagination(pageNumber, pageSize, totalCount), "Successfully Retrieved User Lists");
             }
             catch (Exception ex)
             {
-                response.IsSuccess = false;
-                response.Message = $"Application Layer Exception: {ex.Message}";
+                return PagedResult<UserDto>.Failure($"Application Layer Exception: {ex.Message}");
             }
-            return response;
         }
         #endregion
 
         #region GetUserById
-        public async Task<ApplicationCommonResponseModel<UserDto>> GetUser(int id)
+        public async Task<Result<UserDto>> GetUser(int id)
         {
-            var response = new ApplicationCommonResponseModel<UserDto>();
             try
             {
-                UserEntity? user = await _context.Users.Include(u => u.Role)
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(user => user.IsDeleted == false && user.Id == id);
-                
-                response.Data = user is not null ? MapToDto(user) : null;
-                response.IsSuccess = true;
-                response.Message = user is not null ? "Successfully Retrieved User" : "User not found";
+                var user = await _context.Users.Include(u => u.Role).AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.IsDeleted == false && u.Id == id);
+                return user == null
+                    ? Result<UserDto>.Failure("User not found")
+                    : Result<UserDto>.Success(MapToDto(user), "Successfully Retrieved User");
             }
             catch (Exception ex)
             {
-                response.IsSuccess = false;
-                response.Message = $"Application Layer Exception: {ex.Message}";
+                return Result<UserDto>.Failure($"Application Layer Exception: {ex.Message}");
             }
-            return response;
         }
         #endregion
 
         #region UpdateUser
-        public async Task<ApplicationCommonResponseModel<UserDto>> PutUser(UserDto user)
+        public async Task<Result> PutUser(UserDto user)
         {
-            var response = new ApplicationCommonResponseModel<UserDto>();
             try
             {
                 var userEntity = MapToEntity(user);
-                var existingUser = await _context.Users.Include(u => u.Role)
-                    .FirstOrDefaultAsync(dbUser => dbUser.IsDeleted == false && dbUser.Id == userEntity.Id);
+                var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.IsDeleted == false && u.Id == user.Id);
+                if (existingUser == null) return Result.Failure("User not found");
+                if (!ValidateForUserUpdate(userEntity, out var errorMessage))
+                    return Result.Failure($"User data validation failed: {errorMessage}");
+                if (!await _context.Roles.AnyAsync(r => r.Id == user.RoleId && !r.IsDeleted))
+                    return Result.Failure("Role not found.");
 
-                if (existingUser is not null)
-                {
-                    string errorMessage;
-                    bool userValidation = ValidateForUserUpdate(userEntity, out errorMessage);
-
-                    if (!userValidation)
-                    {
-                        response.Data = null;
-                        response.IsSuccess = false;
-                        response.Message = $"User data validation failed: {errorMessage}";
-                        return response;
-                    }
-
-                    if (!await _context.Roles.AnyAsync(r => r.Id == userEntity.RoleId && !r.IsDeleted))
-                    {
-                        response.IsSuccess = false;
-                        response.Message = "Role not found.";
-                        return response;
-                    }
-                    existingUser.Name = userEntity.Name;
-                    existingUser.PhoneNumber = userEntity.PhoneNumber;
-                    existingUser.RoleId = userEntity.RoleId;
-                    existingUser.Email = userEntity.Email;
-                    existingUser.ContactPhoneNumber = userEntity.ContactPhoneNumber;
-
-                    _context.Users.Update(existingUser);
-                    var result = await _context.SaveChangesAsync();
-
-                    if (result <= 0)
-                    {
-                        response.Data = null;
-                        response.IsSuccess = false;
-                        response.Message = "Failed to update user data.";
-                        return response;
-                    }
-
-                    response.Data = null;
-                    response.IsSuccess = true;
-                    response.Message = "User updated successfully.";
-                }
-                else
-                {
-                    response.Data = null;
-                    response.IsSuccess = false;
-                    response.Message = "User not found";
-                }
+                existingUser.Name = userEntity.Name;
+                existingUser.PhoneNumber = userEntity.PhoneNumber;
+                existingUser.RoleId = userEntity.RoleId;
+                existingUser.Email = userEntity.Email;
+                existingUser.ContactPhoneNumber = userEntity.ContactPhoneNumber;
+                _context.Users.Update(existingUser);
+                return await _context.SaveChangesAsync() > 0
+                    ? Result.Success("User updated successfully.")
+                    : Result.Failure("Failed to update user data.");
             }
             catch (Exception ex)
             {
-                response.Data = null;
-                response.IsSuccess = false;
-                response.Message = $"Application Layer Exception: {ex.Message}";
+                return Result.Failure($"Application Layer Exception: {ex.Message}");
             }
-
-            return response;
         }
         #endregion
 
         #region DeleteUser
-        public async Task<ApplicationCommonResponseModel<UserDto>> DeleteUser(int id)
+        public async Task<Result> DeleteUser(int id)
         {
-            var response = new ApplicationCommonResponseModel<UserDto>();
             try
             {
-                UserEntity? user = await _context.Users.FindAsync(id);
-
-                if (user is not null)
-                {
-                    user.IsDeleted = true;
-                    user.UpdatedAt = DateTime.UtcNow;
-
-                    var result = await _context.SaveChangesAsync();
-
-                    if (result <= 0)
-                    {
-                        response.IsSuccess = false;
-                        response.Message = "Failed to delete user data.";
-                        return response;
-                    }
-
-                    response.IsSuccess = true;
-                    response.Message = "User deleted successfully.";
-                }
-                else
-                {
-                    response.IsSuccess = true;
-                    response.Message = "User not found";
-                }
+                var user = await _context.Users.FindAsync(id);
+                if (user == null) return Result.Failure("User not found");
+                user.IsDeleted = true;
+                user.UpdatedAt = DateTime.UtcNow;
+                return await _context.SaveChangesAsync() > 0
+                    ? Result.Success("User deleted successfully.")
+                    : Result.Failure("Failed to delete user data.");
             }
             catch (Exception ex)
             {
-                response.IsSuccess = false;
-                response.Message = $"Application Layer Exception: {ex.Message}";
+                return Result.Failure($"Application Layer Exception: {ex.Message}");
             }
-            return response;
         }
         #endregion
 
         #region Invitation
-        public async Task<ApplicationCommonResponseModel<List<InvitationDto>>> GetUserInvitationList(int id)
+        public async Task<PagedResult<InvitationDto>> GetUserInvitationList(int id, PaginationRequest? pagination = null)
         {
-            var response = new ApplicationCommonResponseModel<List<InvitationDto>>();
+            var pageNumber = pagination?.PageNumber ?? 1;
+            var pageSize = pagination?.PageSize ?? 10;
+            if (pageNumber < 1 || pageSize < 1 || ((long)pageNumber - 1) * pageSize > int.MaxValue)
+            {
+                return PagedResult<InvitationDto>.Failure("Page number and page size must be positive and within the supported range.");
+            }
+
             try
             {
-                List<Invitation> invitationList = await _context.Invitations.Include(i => i.Role)
-                    .AsNoTracking()
-                    .Where(invitation => invitation.InvitedUserId == id)
+                var query = _context.Invitations.Include(i => i.Role).AsNoTracking().Where(i => i.InvitedUserId == id);
+                var totalCount = await query.CountAsync();
+                var items = await query.OrderBy(x => x.Id)
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
                     .ToListAsync();
-
-                response.ListData = invitationList.Select(MapInvitation).ToList();
-                response.IsSuccess = true;
-                response.Message = invitationList.Count > 0 ? "Successfully Retrieved Invitation Lists" : "Invitation list not found";
+                var data = items.Select(MapInvitation).ToList();
+                return PagedResult<InvitationDto>.Success(data, new Pagination(pageNumber, pageSize, totalCount), "Successfully Retrieved Invitation Lists");
             }
             catch (Exception ex)
             {
-                response.IsSuccess = false;
-                response.Message = $"Application Layer Exception: {ex.Message}";
+                return PagedResult<InvitationDto>.Failure($"Application Layer Exception: {ex.Message}");
             }
-            return response;
         }
 
-        public async Task<ApplicationCommonResponseModel<List<InvitationDto>>> GetInvitedByOtherList(int id)
+        public async Task<PagedResult<InvitationDto>> GetInvitedByOtherList(int id, PaginationRequest? pagination = null)
         {
-            var response = new ApplicationCommonResponseModel<List<InvitationDto>>();
+            var pageNumber = pagination?.PageNumber ?? 1;
+            var pageSize = pagination?.PageSize ?? 10;
+            if (pageNumber < 1 || pageSize < 1 || ((long)pageNumber - 1) * pageSize > int.MaxValue)
+            {
+                return PagedResult<InvitationDto>.Failure("Page number and page size must be positive and within the supported range.");
+            }
+
             try
             {
-                List<Invitation> invitedByOtherList = await _context.Invitations.Include(i => i.Role)
-                    .AsNoTracking()
-                    .Where(invitation => invitation.InvitedById == id)
+                var query = _context.Invitations.Include(i => i.Role).AsNoTracking().Where(i => i.InvitedById == id);
+                var totalCount = await query.CountAsync();
+                var items = await query.OrderBy(x => x.Id)
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
                     .ToListAsync();
-
-                response.ListData = invitedByOtherList.Select(MapInvitation).ToList();
-                response.IsSuccess = true;
-                response.Message = invitedByOtherList.Count > 0 ? "Successfully Retrieved Invited Lists" : "Invited list not found";
+                var data = items.Select(MapInvitation).ToList();
+                return PagedResult<InvitationDto>.Success(data, new Pagination(pageNumber, pageSize, totalCount), "Successfully Retrieved Invited Lists");
             }
             catch (Exception ex)
             {
-                response.IsSuccess = false;
-                response.Message = $"Application Layer Exception: {ex.Message}";
+                return PagedResult<InvitationDto>.Failure($"Application Layer Exception: {ex.Message}");
             }
-            return response;
         }
         #endregion
 
         #region Notification
-        public async Task<ApplicationCommonResponseModel<List<NotificationDto>>> GetUserNotificationList(int id)
+        public async Task<PagedResult<NotificationDto>> GetUserNotificationList(int id, PaginationRequest? pagination = null)
         {
-            var response = new ApplicationCommonResponseModel<List<NotificationDto>>();
+            var pageNumber = pagination?.PageNumber ?? 1;
+            var pageSize = pagination?.PageSize ?? 10;
+            if (pageNumber < 1 || pageSize < 1 || ((long)pageNumber - 1) * pageSize > int.MaxValue)
+            {
+                return PagedResult<NotificationDto>.Failure("Page number and page size must be positive and within the supported range.");
+            }
+
             try
             {
-                List<NotificationEntity> notificationList = await _context.Notifications
-                    .AsNoTracking()
-                    .Where(notification => notification.UserId == id && notification.IsDelete == false)
+                var query = _context.Notifications.AsNoTracking().Where(n => n.UserId == id && n.IsDeleted == false);
+                var totalCount = await query.CountAsync();
+                var items = await query.OrderBy(x => x.Id)
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
                     .ToListAsync();
-
-                response.ListData = notificationList.Select(MapNotification).ToList();
-                response.IsSuccess = true;
-                response.Message = notificationList.Count > 0
-                    ? "Successfully Retrieved User's Notification Lists"
-                    : "User's Notification list not found";
+                var data = items.Select(MapNotification).ToList();
+                return PagedResult<NotificationDto>.Success(data, new Pagination(pageNumber, pageSize, totalCount), "Successfully Retrieved User's Notification Lists");
             }
             catch (Exception ex)
             {
-                response.IsSuccess = false;
-                response.Message = $"Application Layer Exception: {ex.Message}";
+                return PagedResult<NotificationDto>.Failure($"Application Layer Exception: {ex.Message}");
             }
-            return response;
         }
 
-        public async Task<ApplicationCommonResponseModel<List<NotificationDto>>> DeleteUserNotificationList(int id)
+        public async Task<Result> DeleteUserNotificationList(int id)
         {
-            var response = new ApplicationCommonResponseModel<List<NotificationDto>>();
             try
             {
-                List<NotificationEntity> notificationList = await _context.Notifications
-                    .Where(notification => notification.UserId == id && notification.IsDelete == false)
-                    .ToListAsync();
-
-                if (notificationList.Count > 0)
-                {
-                    foreach (NotificationEntity notification in notificationList)
-                    {
-                        notification.IsDelete = true;
-                    }
-
-                    var result = await _context.SaveChangesAsync();
-
-                    if (result <= 0)
-                    {
-                        response.IsSuccess = false;
-                        response.Message = "Failed to delete user data.";
-                        return response;
-                    }
-
-                    response.IsSuccess = true;
-                    response.Message = "User deleted successfully.";
-                }
-                else
-                {
-                    response.IsSuccess = true;
-                    response.Message = "User's Notification List not found";
-                }
-
-                response.Data = null;
+                var notifications = await _context.Notifications
+                    .Where(n => n.UserId == id && n.IsDeleted == false).ToListAsync();
+                foreach (var notification in notifications) notification.IsDelete = true;
+                await _context.SaveChangesAsync();
+                return Result.Success("User notifications deleted successfully.");
             }
             catch (Exception ex)
             {
-                response.IsSuccess = false;
-                response.Message = $"Application Layer Exception: {ex.Message}";
+                return Result.Failure($"Application Layer Exception: {ex.Message}");
             }
-            return response;
         }
         #endregion
 

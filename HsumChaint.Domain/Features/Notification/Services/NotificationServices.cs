@@ -1,3 +1,4 @@
+using HsumChaint.Shared;
 using HsumChaint.Database.Models;
 using HsumChaint.Domain.Features.Notification.DTOs;
 using HsumChaint.Domain.Features.Notification.Providers;
@@ -19,10 +20,8 @@ namespace HsumChaint.Domain.Features.Notification.Services
             _notificationProvider = notificationProvider;
         }
 
-        public async Task<ApplicationCommonResponseModel<DeleteNotificationResponseDto>> DeleteNotification(DeleteNotificationRequestDto requestModel)
+        public async Task<Result<DeleteNotificationResponseDto>> DeleteNotification(DeleteNotificationRequestDto requestModel)
         {
-            var response = new ApplicationCommonResponseModel<DeleteNotificationResponseDto>();
-
             try
             {
                 #region Fetch and Validate Notification
@@ -30,26 +29,19 @@ namespace HsumChaint.Domain.Features.Notification.Services
 
                 if (notification == null)
                 {
-                    response.IsSuccess = false;
-                    response.Message = "Notification not found.";
-                    return response;
+                    return Result<DeleteNotificationResponseDto>.Failure("Notification not found.");
                 }
 
                 if (notification.UserId != requestModel.UserId)
                 {
-                    response.IsSuccess = false;
-                    response.Message = "Unauthorized access to this notification.";
-                    return response;
+                    return Result<DeleteNotificationResponseDto>.Failure("Unauthorized access to this notification.");
                 }
                 #endregion
 
                 #region Update Database
                 if (notification.IsDelete == true)
                 {
-                    response.IsSuccess = true;
-                    response.Message = "Notification is already deleted.";
-                    response.Data = MapDeleteResponse(notification);
-                    return response;
+                    return Result<DeleteNotificationResponseDto>.Success(MapDeleteResponse(notification), "Notification is already deleted.");
                 }
 
                 notification.IsDelete = true;
@@ -57,34 +49,24 @@ namespace HsumChaint.Domain.Features.Notification.Services
                 _dbContext.Notifications.Update(notification);
                 await _dbContext.SaveChangesAsync();
 
-                response.IsSuccess = true;
-                response.Message = "Notification deleted successfully.";
-                response.Data = MapDeleteResponse(notification);
+                return Result<DeleteNotificationResponseDto>.Success(MapDeleteResponse(notification), "Notification deleted successfully.");
                 #endregion
             }
             catch (Exception ex)
             {
-                response.IsSuccess = false;
-                response.Message = $"Application layer err: {ex.Message} {ex.InnerException}";
+                return Result<DeleteNotificationResponseDto>.Failure($"Application layer err: {ex.Message} {ex.InnerException}");
             }
-
-            return response;
         }
 
-        public async Task<ApplicationCommonResponseModel<CreateNotificationResponseDto>> SendNotificationAndStore(CreateNotificationRequestDto requestModel)
+        public async Task<Result<CreateNotificationResponseDto>> SendNotificationAndStore(CreateNotificationRequestDto requestModel)
         {
-            var response = new ApplicationCommonResponseModel<CreateNotificationResponseDto>();
-
             try
             {
                 #region Check If User Exists
                 var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == requestModel.UserId && x.IsDeleted == false);
                 if (user == null)
                 {
-                    response.IsSuccess = false;
-                    response.Message = "User not found";
-
-                    return response;
+                    return Result<CreateNotificationResponseDto>.Failure("User not found");
                 }
                 #endregion
 
@@ -96,14 +78,10 @@ namespace HsumChaint.Domain.Features.Notification.Services
                 await _dbContext.Notifications.AddAsync(notification);
                 await _dbContext.SaveChangesAsync();
 
-                response.IsSuccess = true;
-                response.Message = "Notification added successfully.";
-
-                response.Data = MapCreateResponse(notification);
                 #endregion
 
                 #region Send Notification
-                if (!string.IsNullOrWhiteSpace(deviceFcmToken) && notification != null)
+                if (!string.IsNullOrWhiteSpace(deviceFcmToken))
                 {
                     var title = GetTitleForType(requestModel.NotificationType);
 
@@ -116,20 +94,16 @@ namespace HsumChaint.Domain.Features.Notification.Services
                     await _notificationProvider.SendPushAsync(deviceFcmToken, title, requestModel.Message, payloadData);
                 }
                 #endregion
+                return Result<CreateNotificationResponseDto>.Success(MapCreateResponse(notification), "Notification added successfully.");
             }
             catch (Exception ex)
             {
-                response.IsSuccess = false;
-                response.Message = $"Application layer err: {ex.Message} {ex.InnerException}";
+                return Result<CreateNotificationResponseDto>.Failure($"Application layer err: {ex.Message} {ex.InnerException}");
             }
-
-            return response;
         }
 
-        public async Task<ApplicationCommonResponseModel<ReadNotificationResponseDto>> ReadNotification(ReadNotificationRequestDto requestModel)
+        public async Task<Result<ReadNotificationResponseDto>> ReadNotification(ReadNotificationRequestDto requestModel)
         {
-            var response = new ApplicationCommonResponseModel<ReadNotificationResponseDto>();
-
             try
             {
                 #region Fetch and Validate Notification
@@ -137,26 +111,19 @@ namespace HsumChaint.Domain.Features.Notification.Services
 
                 if (notification == null)
                 {
-                    response.IsSuccess = false;
-                    response.Message = "Notification not found.";
-                    return response;
+                    return Result<ReadNotificationResponseDto>.Failure("Notification not found.");
                 }
 
                 if (notification.UserId != requestModel.UserId)
                 {
-                    response.IsSuccess = false;
-                    response.Message = "Unauthorized access to this notification.";
-                    return response;
+                    return Result<ReadNotificationResponseDto>.Failure("Unauthorized access to this notification.");
                 }
                 #endregion
 
                 #region Update Database
                 if (notification.IsRead == true)
                 {
-                    response.IsSuccess = true;
-                    response.Message = "Notification is already read.";
-                    response.Data = MapReadResponse(notification);
-                    return response;
+                    return Result<ReadNotificationResponseDto>.Success(MapReadResponse(notification), "Notification is already read.");
                 }
 
                 notification.IsRead = true;
@@ -164,18 +131,13 @@ namespace HsumChaint.Domain.Features.Notification.Services
                 _dbContext.Notifications.Update(notification);
                 await _dbContext.SaveChangesAsync();
 
-                response.IsSuccess = true;
-                response.Message = "Notification marked as read successfully.";
-                response.Data = MapReadResponse(notification);
+                return Result<ReadNotificationResponseDto>.Success(MapReadResponse(notification), "Notification marked as read successfully.");
                 #endregion
             }
             catch (Exception ex)
             {
-                response.IsSuccess = false;
-                response.Message = $"Application layer err: {ex.Message} {ex.InnerException}";
+                return Result<ReadNotificationResponseDto>.Failure($"Application layer err: {ex.Message} {ex.InnerException}");
             }
-
-            return response;
         }
 
         private static NotificationEntity MapToEntity(CreateNotificationRequestDto request)

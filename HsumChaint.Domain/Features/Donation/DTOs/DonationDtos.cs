@@ -1,3 +1,4 @@
+using HsumChaint.Shared;
 using HsumChaint.Shared.CommonEnum;
 
 namespace HsumChaint.Domain.Features.Donation.DTOs
@@ -52,7 +53,7 @@ namespace HsumChaint.Domain.Features.Donation.DTOs
         public DateTime? DropoffTime { get; set; }
     }
 
-    public class DonationQueryDto
+    public class DonationQueryDto : PaginationRequest
     {
         public int? MonasterySpaceId { get; set; }
         public int? DonorId { get; set; }

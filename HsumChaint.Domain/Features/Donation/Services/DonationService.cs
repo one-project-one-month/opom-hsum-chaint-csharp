@@ -1,3 +1,4 @@
+using HsumChaint.Shared;
 using HsumChaint.Shared.Authorization;
 using HsumChaint.Database.Models;
 using HsumChaint.Domain.Features.Donation.DTOs;
@@ -21,7 +22,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
             _notificationProvider = notificationProvider;
         }
 
-        public async Task<ApplicationCommonResponseModel<DonationDto>> RequestDonation(int currentUserId, CreateDonationRequestDto request)
+        public async Task<Result<DonationDto>> RequestDonation(int currentUserId, CreateDonationRequestDto request)
         {
             var response = await ValidateDonationRequest(request);
             if (response != null)
@@ -32,7 +33,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
             var donor = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == currentUserId && x.IsDeleted == false);
             if (donor == null)
             {
-                return Fail("Donor user not found.");
+                return Result<DonationDto>.Failure("Donor user not found.");
             }
 
             var donation = new DonationEntity
@@ -57,10 +58,10 @@ namespace HsumChaint.Domain.Features.Donation.Services
             await _dbContext.SaveChangesAsync();
             await NotifyMonasteryManagers(request.MonasterySpaceId, "A new donation request is waiting for review.", donation.Id);
 
-            return Success("Donation request submitted successfully.", MapDonation(donation));
+            return Result<DonationDto>.Success(MapDonation(donation), "Donation request submitted successfully.");
         }
 
-        public async Task<ApplicationCommonResponseModel<DonationDto>> CreateManualDonation(int currentUserId, CreateManualDonationRequestDto request)
+        public async Task<Result<DonationDto>> CreateManualDonation(int currentUserId, CreateManualDonationRequestDto request)
         {
             var validation = await ValidateDonationRequest(request);
             if (validation != null)
@@ -71,7 +72,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
             var member = await GetMember(currentUserId, request.MonasterySpaceId);
             if (!await CanManageDonations(member))
             {
-                return Fail("User is not authorized to create manual donations for this monastery.");
+                return Result<DonationDto>.Failure("User is not authorized to create manual donations for this monastery.");
             }
 
             var donor = request.DonorId.HasValue
@@ -80,12 +81,12 @@ namespace HsumChaint.Domain.Features.Donation.Services
 
             if (request.DonorId.HasValue && donor == null)
             {
-                return Fail("Donor user not found.");
+                return Result<DonationDto>.Failure("Donor user not found.");
             }
 
             if (!request.DonorId.HasValue && string.IsNullOrWhiteSpace(request.DonorName))
             {
-                return Fail("Donor name is required for manual donations without a donor account.");
+                return Result<DonationDto>.Failure("Donor name is required for manual donations without a donor account.");
             }
 
             var initialStatus = request.PickupTime.HasValue || request.DropoffTime.HasValue
@@ -120,12 +121,17 @@ namespace HsumChaint.Domain.Features.Donation.Services
                 await NotifyUser(donation.DonorId.Value, "Your donation has been recorded by the monastery.", donation.Id);
             }
 
-            return Success("Manual donation created successfully.", MapDonation(donation));
+            return Result<DonationDto>.Success(MapDonation(donation), "Manual donation created successfully.");
         }
 
-        public async Task<ApplicationCommonResponseModel<List<DonationDto>>> GetDonations(int currentUserId, DonationQueryDto query)
+        public async Task<PagedResult<DonationDto>> GetDonations(int currentUserId, DonationQueryDto query)
         {
-            var response = new ApplicationCommonResponseModel<List<DonationDto>>();
+            var pageNumber = query.PageNumber;
+            var pageSize = query.PageSize;
+            if (pageNumber < 1 || pageSize < 1 || ((long)pageNumber - 1) * pageSize > int.MaxValue)
+            {
+                return PagedResult<DonationDto>.Failure("Page number and page size must be positive and within the supported range.");
+            }
             IQueryable<DonationEntity> donations = _dbContext.DonorLists.AsNoTracking();
 
             if (query.MonasterySpaceId.HasValue)
@@ -133,9 +139,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
                 var member = await GetMember(currentUserId, query.MonasterySpaceId.Value);
                 if (member == null)
                 {
-                    response.IsSuccess = false;
-                    response.Message = "User is not a member of this monastery.";
-                    return response;
+                    return PagedResult<DonationDto>.Failure("User is not a member of this monastery.");
                 }
 
                 donations = donations.Where(x => x.MonasterySpaceId == query.MonasterySpaceId.Value);
@@ -149,9 +153,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
             {
                 if (!query.MonasterySpaceId.HasValue && query.DonorId.Value != currentUserId)
                 {
-                    response.IsSuccess = false;
-                    response.Message = "User is not authorized to view this donor history.";
-                    return response;
+                    return PagedResult<DonationDto>.Failure("User is not authorized to view this donor history.");
                 }
 
                 donations = donations.Where(x => x.DonorId == query.DonorId.Value);
@@ -172,55 +174,56 @@ namespace HsumChaint.Domain.Features.Donation.Services
                 donations = donations.Where(x => x.CreatedAt <= query.ToDate.Value);
             }
 
+            var totalCount = await donations.CountAsync();
             var donationEntities = await donations
                 .OrderByDescending(x => x.CreatedAt)
+                .ThenByDescending(x => x.Id)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
             var list = donationEntities.Select(MapDonation).ToList();
 
-            response.IsSuccess = true;
-            response.Message = list.Count > 0 ? "Donations retrieved successfully." : "Donation list not found.";
-            response.ListData = list;
-            return response;
+            return PagedResult<DonationDto>.Success(list, new Pagination(pageNumber, pageSize, totalCount), "Donations retrieved successfully.");
         }
 
-        public async Task<ApplicationCommonResponseModel<DonationDto>> GetDonation(int currentUserId, int donationId)
+        public async Task<Result<DonationDto>> GetDonation(int currentUserId, int donationId)
         {
             var donation = await _dbContext.DonorLists.AsNoTracking().FirstOrDefaultAsync(x => x.Id == donationId);
             if (donation == null)
             {
-                return Fail("Donation not found.");
+                return Result<DonationDto>.Failure("Donation not found.");
             }
 
             if (!await CanViewDonation(currentUserId, donation))
             {
-                return Fail("User is not authorized to view this donation.");
+                return Result<DonationDto>.Failure("User is not authorized to view this donation.");
             }
 
-            return Success("Donation retrieved successfully.", MapDonation(donation));
+            return Result<DonationDto>.Success(MapDonation(donation), "Donation retrieved successfully.");
         }
 
-        public async Task<ApplicationCommonResponseModel<DonationDto>> ReviewDonation(int currentUserId, int donationId, ReviewDonationRequestDto request)
+        public async Task<Result<DonationDto>> ReviewDonation(int currentUserId, int donationId, ReviewDonationRequestDto request)
         {
             if (request.Status is not (DonationStatus.Accepted or DonationStatus.Rejected))
             {
-                return Fail("Review status must be Accepted or Rejected.");
+                return Result<DonationDto>.Failure("Review status must be Accepted or Rejected.");
             }
 
             var donation = await _dbContext.DonorLists.FindAsync(donationId);
             if (donation == null)
             {
-                return Fail("Donation not found.");
+                return Result<DonationDto>.Failure("Donation not found.");
             }
 
             var member = await GetMember(currentUserId, donation.MonasterySpaceId ?? 0);
             if (!await CanManageDonations(member))
             {
-                return Fail("User is not authorized to review this donation.");
+                return Result<DonationDto>.Failure("User is not authorized to review this donation.");
             }
 
             if (donation.StatusValue is DonationStatus.Completed or DonationStatus.Cancelled)
             {
-                return Fail("Completed or cancelled donations cannot be reviewed.");
+                return Result<DonationDto>.Failure("Completed or cancelled donations cannot be reviewed.");
             }
 
             donation.StatusValue = request.Status;
@@ -235,31 +238,31 @@ namespace HsumChaint.Domain.Features.Donation.Services
                 await NotifyUser(donation.DonorId.Value, $"Your donation was {request.Status.ToString().ToLower()}.", donation.Id);
             }
 
-            return Success("Donation reviewed successfully.", MapDonation(donation));
+            return Result<DonationDto>.Success(MapDonation(donation), "Donation reviewed successfully.");
         }
 
-        public async Task<ApplicationCommonResponseModel<DonationDto>> ScheduleDonation(int currentUserId, int donationId, ScheduleDonationRequestDto request)
+        public async Task<Result<DonationDto>> ScheduleDonation(int currentUserId, int donationId, ScheduleDonationRequestDto request)
         {
             if (!request.PickupTime.HasValue && !request.DropoffTime.HasValue)
             {
-                return Fail("Pickup time or dropoff time is required.");
+                return Result<DonationDto>.Failure("Pickup time or dropoff time is required.");
             }
 
             var donation = await _dbContext.DonorLists.FindAsync(donationId);
             if (donation == null)
             {
-                return Fail("Donation not found.");
+                return Result<DonationDto>.Failure("Donation not found.");
             }
 
             var member = await GetMember(currentUserId, donation.MonasterySpaceId ?? 0);
             if (!await CanScheduleDonations(member))
             {
-                return Fail("User is not authorized to schedule this donation.");
+                return Result<DonationDto>.Failure("User is not authorized to schedule this donation.");
             }
 
             if (donation.StatusValue is DonationStatus.Rejected or DonationStatus.Cancelled or DonationStatus.Completed)
             {
-                return Fail("Rejected, cancelled, or completed donations cannot be scheduled.");
+                return Result<DonationDto>.Failure("Rejected, cancelled, or completed donations cannot be scheduled.");
             }
 
             donation.PickupTime = request.PickupTime;
@@ -273,26 +276,26 @@ namespace HsumChaint.Domain.Features.Donation.Services
                 await NotifyUser(donation.DonorId.Value, "Your donation pickup/dropoff schedule has been updated.", donation.Id);
             }
 
-            return Success("Donation scheduled successfully.", MapDonation(donation));
+            return Result<DonationDto>.Success(MapDonation(donation), "Donation scheduled successfully.");
         }
 
-        public async Task<ApplicationCommonResponseModel<DonationDto>> CompleteDonation(int currentUserId, int donationId)
+        public async Task<Result<DonationDto>> CompleteDonation(int currentUserId, int donationId)
         {
             var donation = await _dbContext.DonorLists.FindAsync(donationId);
             if (donation == null)
             {
-                return Fail("Donation not found.");
+                return Result<DonationDto>.Failure("Donation not found.");
             }
 
             var member = await GetMember(currentUserId, donation.MonasterySpaceId ?? 0);
             if (!await CanScheduleDonations(member))
             {
-                return Fail("User is not authorized to complete this donation.");
+                return Result<DonationDto>.Failure("User is not authorized to complete this donation.");
             }
 
             if (donation.StatusValue is DonationStatus.Rejected or DonationStatus.Cancelled)
             {
-                return Fail("Rejected or cancelled donations cannot be completed.");
+                return Result<DonationDto>.Failure("Rejected or cancelled donations cannot be completed.");
             }
 
             donation.StatusValue = DonationStatus.Completed;
@@ -305,26 +308,26 @@ namespace HsumChaint.Domain.Features.Donation.Services
                 await NotifyUser(donation.DonorId.Value, "Your donation has been completed.", donation.Id);
             }
 
-            return Success("Donation completed successfully.", MapDonation(donation));
+            return Result<DonationDto>.Success(MapDonation(donation), "Donation completed successfully.");
         }
 
-        public async Task<ApplicationCommonResponseModel<DonationDto>> CancelDonation(int currentUserId, int donationId)
+        public async Task<Result<DonationDto>> CancelDonation(int currentUserId, int donationId)
         {
             var donation = await _dbContext.DonorLists.FindAsync(donationId);
             if (donation == null)
             {
-                return Fail("Donation not found.");
+                return Result<DonationDto>.Failure("Donation not found.");
             }
 
             var member = await GetMember(currentUserId, donation.MonasterySpaceId ?? 0);
             if (donation.DonorId != currentUserId && !await CanManageDonations(member))
             {
-                return Fail("User is not authorized to cancel this donation.");
+                return Result<DonationDto>.Failure("User is not authorized to cancel this donation.");
             }
 
             if (donation.StatusValue == DonationStatus.Completed)
             {
-                return Fail("Completed donations cannot be cancelled.");
+                return Result<DonationDto>.Failure("Completed donations cannot be cancelled.");
             }
 
             donation.StatusValue = DonationStatus.Cancelled;
@@ -336,35 +339,35 @@ namespace HsumChaint.Domain.Features.Donation.Services
                 await NotifyUser(donation.DonorId.Value, "Your donation has been cancelled.", donation.Id);
             }
 
-            return Success("Donation cancelled successfully.", MapDonation(donation));
+            return Result<DonationDto>.Success(MapDonation(donation), "Donation cancelled successfully.");
         }
 
-        private async Task<ApplicationCommonResponseModel<DonationDto>?> ValidateDonationRequest(CreateDonationRequestDto request)
+        private async Task<Result<DonationDto>?> ValidateDonationRequest(CreateDonationRequestDto request)
         {
             if (request.MonasterySpaceId <= 0)
             {
-                return Fail("Monastery space id is required.");
+                return Result<DonationDto>.Failure("Monastery space id is required.");
             }
 
             var monasteryExists = await _dbContext.MonasterySpaces.AnyAsync(x => x.Id == request.MonasterySpaceId);
             if (!monasteryExists)
             {
-                return Fail("Monastery not found.");
+                return Result<DonationDto>.Failure("Monastery not found.");
             }
 
             if (request.DonationType == DonationType.Other && string.IsNullOrWhiteSpace(request.CustomDonationType))
             {
-                return Fail("Custom donation type is required when donation type is Other.");
+                return Result<DonationDto>.Failure("Custom donation type is required when donation type is Other.");
             }
 
             if (request.Amount.HasValue && request.Amount.Value < 0)
             {
-                return Fail("Donation amount cannot be negative.");
+                return Result<DonationDto>.Failure("Donation amount cannot be negative.");
             }
 
             if (request.Quantity.HasValue && request.Quantity.Value < 0)
             {
-                return Fail("Donation quantity cannot be negative.");
+                return Result<DonationDto>.Failure("Donation quantity cannot be negative.");
             }
 
             return null;
@@ -472,23 +475,5 @@ namespace HsumChaint.Domain.Features.Donation.Services
             };
         }
 
-        private static ApplicationCommonResponseModel<DonationDto> Fail(string message)
-        {
-            return new ApplicationCommonResponseModel<DonationDto>
-            {
-                IsSuccess = false,
-                Message = message
-            };
-        }
-
-        private static ApplicationCommonResponseModel<DonationDto> Success(string message, DonationDto donation)
-        {
-            return new ApplicationCommonResponseModel<DonationDto>
-            {
-                IsSuccess = true,
-                Message = message,
-                Data = donation
-            };
-        }
     }
 }

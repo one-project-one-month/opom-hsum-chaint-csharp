@@ -1,3 +1,4 @@
+using HsumChaint.API.Extensions;
 using HsumChaint.API.Authorization;
 using HsumChaint.Shared.Authorization;
 using HsumChaint.Domain.Features.Auth.DTOs;
@@ -26,12 +27,7 @@ namespace HsumChaint.API.Features.Auth.Controllers
         {
             var registerResponse = await _authService.Register(reqModel);
             
-            if(registerResponse.IsSuccess == true)
-            {
-                return Ok(registerResponse);
-            }
-
-            return BadRequest(registerResponse);
+            return registerResponse.ToActionResult();
         }
         #endregion
 
@@ -43,12 +39,7 @@ namespace HsumChaint.API.Features.Auth.Controllers
         {
             var loginResponse = await _authService.Login(reqModel);
 
-            if(loginResponse.IsSuccess == true)
-            {
-                return Ok(loginResponse);
-            }
-
-            return BadRequest(loginResponse);
+            return loginResponse.ToActionResult();
         }
         #endregion
 
@@ -58,12 +49,7 @@ namespace HsumChaint.API.Features.Auth.Controllers
         {
             var refreshTokenResponse = await _authService.RefreshTokens(reqModel);
 
-            if(refreshTokenResponse.IsSuccess == true)
-            {
-                return Ok(refreshTokenResponse);
-            }
-
-            return Unauthorized(refreshTokenResponse);
+            return refreshTokenResponse.ToActionResult();
         }
         #endregion
     }

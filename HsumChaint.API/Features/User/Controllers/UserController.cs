@@ -1,3 +1,5 @@
+using HsumChaint.Shared;
+using HsumChaint.API.Extensions;
 using HsumChaint.API.Authorization;
 using HsumChaint.Shared.Authorization;
 using HsumChaint.Domain.Features.User.DTOs;
@@ -20,14 +22,11 @@ namespace HsumChaint.API.Features.User.Controllers
 
         [HttpGet]
         [HasPermission(Permissions.Users.View)]
-        public async Task<IActionResult> GetAllUsers()
+        public async Task<IActionResult> GetAllUsers([FromQuery] PaginationRequest pagination)
         {
-            var userList = await _userService.GetAllUsers();
+            var userList = await _userService.GetAllUsers(pagination);
 
-            if (userList == null)
-                return NotFound();
-
-            return Ok(userList);
+            return userList.ToActionResult();
         }
 
         [HttpGet("{id}")]
@@ -36,10 +35,7 @@ namespace HsumChaint.API.Features.User.Controllers
         {
             var user = await _userService.GetUser(id);
 
-            if (user == null)
-                return NotFound();
-
-            return Ok(user);
+            return user.ToActionResult();
         }
 
         [HttpPut]
@@ -49,10 +45,7 @@ namespace HsumChaint.API.Features.User.Controllers
         {
             var updatedResult = await _userService.PutUser(user);
 
-            if (updatedResult == null)
-                return NotFound();
-
-            return Ok(updatedResult);
+            return updatedResult.ToActionResult();
         }
 
         [HttpDelete("{id}")]
@@ -61,10 +54,7 @@ namespace HsumChaint.API.Features.User.Controllers
         {
             var deletedResult = await _userService.DeleteUser(id);
 
-            if (deletedResult == null)
-                return NotFound();
-
-            return Ok(deletedResult);
+            return deletedResult.ToActionResult();
         }
 
         #region Invitation
@@ -72,27 +62,21 @@ namespace HsumChaint.API.Features.User.Controllers
         // GET Invitations List from user
         [HttpGet("{id}/invitations")]
         [HasPermission(Permissions.Users.View)]
-        public async Task<IActionResult> GetUserInvitationList(int id)
+        public async Task<IActionResult> GetUserInvitationList(int id, [FromQuery] PaginationRequest pagination)
         {
-            var invitationList = await _userService.GetUserInvitationList(id);
+            var invitationList = await _userService.GetUserInvitationList(id, pagination);
 
-            if (invitationList == null)
-                return NotFound();
-
-            return Ok(invitationList);
+            return invitationList.ToActionResult();
         }
 
         // GET List of Invited By Other User
         [HttpGet("{id}/invited-by-list")]
         [HasPermission(Permissions.Users.View)]
-        public async Task<IActionResult> GetInvitedByOtherList(int id)
+        public async Task<IActionResult> GetInvitedByOtherList(int id, [FromQuery] PaginationRequest pagination)
         {
-            var invitedByOtherList = await _userService.GetInvitedByOtherList(id);
+            var invitedByOtherList = await _userService.GetInvitedByOtherList(id, pagination);
 
-            if (invitedByOtherList == null)
-                return NotFound();
-
-            return Ok(invitedByOtherList);
+            return invitedByOtherList.ToActionResult();
         }
 
         #endregion
@@ -102,14 +86,11 @@ namespace HsumChaint.API.Features.User.Controllers
         // GET Invitations List for user
         [HttpGet("{id}/notification")]
         [HasPermission(Permissions.Users.View)]
-        public async Task<IActionResult> GetUserNotificationList(int id)
+        public async Task<IActionResult> GetUserNotificationList(int id, [FromQuery] PaginationRequest pagination)
         {
-            var notificationList = await _userService.GetUserNotificationList(id);
+            var notificationList = await _userService.GetUserNotificationList(id, pagination);
 
-            if (notificationList == null)
-                return NotFound();
-
-            return Ok(notificationList);
+            return notificationList.ToActionResult();
         }
 
         // GET List of Invited By Other User
@@ -119,10 +100,7 @@ namespace HsumChaint.API.Features.User.Controllers
         {
             var deletedNotificationResult = await _userService.DeleteUserNotificationList(id);
 
-            if (deletedNotificationResult == null)
-                return NotFound();
-
-            return Ok(deletedNotificationResult);
+            return deletedNotificationResult.ToActionResult();
         }
 
         #endregion

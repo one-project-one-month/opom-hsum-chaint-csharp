@@ -1,10 +1,8 @@
 using HsumChaint.API.Authorization;
 using HsumChaint.Shared.Authorization;
 using HsumChaint.API.Extensions;
-using HsumChaint.Domain;
 using HsumChaint.Domain.Features.Donation.DTOs;
 using HsumChaint.Domain.Features.Donation.ServiceInterfaces;
-using HsumChaint.Shared.CommonEnum;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -33,7 +31,7 @@ namespace HsumChaint.API.Features.Donation.Controllers
             }
 
             var response = await _donationService.RequestDonation(currentUserId.Value, request);
-            return ToActionResult(response);
+            return response.ToActionResult();
         }
 
         [HttpPost("manual")]
@@ -47,17 +45,12 @@ namespace HsumChaint.API.Features.Donation.Controllers
             }
 
             var response = await _donationService.CreateManualDonation(currentUserId.Value, request);
-            return ToActionResult(response);
+            return response.ToActionResult();
         }
 
         [HttpGet]
         [HasPermission(Permissions.Donation.View)]
-        public async Task<IActionResult> GetDonations(
-            [FromQuery] int? monasterySpaceId,
-            [FromQuery] int? donorId,
-            [FromQuery] DonationStatus? status,
-            [FromQuery] DateTime? fromDate,
-            [FromQuery] DateTime? toDate)
+        public async Task<IActionResult> GetDonations([FromQuery] DonationQueryDto query)
         {
             var currentUserId = User.GetCurrentUserId();
             if (!currentUserId.HasValue)
@@ -65,15 +58,8 @@ namespace HsumChaint.API.Features.Donation.Controllers
                 return Unauthorized();
             }
 
-            var response = await _donationService.GetDonations(currentUserId.Value, new DonationQueryDto
-            {
-                MonasterySpaceId = monasterySpaceId,
-                DonorId = donorId,
-                Status = status,
-                FromDate = fromDate,
-                ToDate = toDate
-            });
-            return ToActionResult(response);
+            var response = await _donationService.GetDonations(currentUserId.Value, query);
+            return response.ToActionResult();
         }
 
         [HttpGet("{id}")]
@@ -87,7 +73,7 @@ namespace HsumChaint.API.Features.Donation.Controllers
             }
 
             var response = await _donationService.GetDonation(currentUserId.Value, id);
-            return ToActionResult(response);
+            return response.ToActionResult();
         }
 
         [HttpPut("{id}/review")]
@@ -101,7 +87,7 @@ namespace HsumChaint.API.Features.Donation.Controllers
             }
 
             var response = await _donationService.ReviewDonation(currentUserId.Value, id, request);
-            return ToActionResult(response);
+            return response.ToActionResult();
         }
 
         [HttpPut("{id}/schedule")]
@@ -115,7 +101,7 @@ namespace HsumChaint.API.Features.Donation.Controllers
             }
 
             var response = await _donationService.ScheduleDonation(currentUserId.Value, id, request);
-            return ToActionResult(response);
+            return response.ToActionResult();
         }
 
         [HttpPut("{id}/complete")]
@@ -129,7 +115,7 @@ namespace HsumChaint.API.Features.Donation.Controllers
             }
 
             var response = await _donationService.CompleteDonation(currentUserId.Value, id);
-            return ToActionResult(response);
+            return response.ToActionResult();
         }
 
         [HttpPut("{id}/cancel")]
@@ -143,28 +129,8 @@ namespace HsumChaint.API.Features.Donation.Controllers
             }
 
             var response = await _donationService.CancelDonation(currentUserId.Value, id);
-            return ToActionResult(response);
+            return response.ToActionResult();
         }
 
-        private IActionResult ToActionResult<T>(ApplicationCommonResponseModel<T> response) where T : class
-        {
-            if (response.IsSuccess == true)
-            {
-                return Ok(response);
-            }
-
-            if (response.Message?.Contains("not found", StringComparison.OrdinalIgnoreCase) == true)
-            {
-                return NotFound(response);
-            }
-
-            if (response.Message?.Contains("not authorized", StringComparison.OrdinalIgnoreCase) == true
-                || response.Message?.Contains("not a member", StringComparison.OrdinalIgnoreCase) == true)
-            {
-                return StatusCode(StatusCodes.Status403Forbidden, response);
-            }
-
-            return BadRequest(response);
-        }
     }
 }

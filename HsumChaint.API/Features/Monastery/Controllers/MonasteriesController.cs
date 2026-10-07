@@ -1,7 +1,7 @@
+using HsumChaint.Shared;
 using HsumChaint.API.Authorization;
 using HsumChaint.Shared.Authorization;
 using HsumChaint.API.Extensions;
-using HsumChaint.Domain;
 using HsumChaint.Domain.Features.Monastery.DTOs;
 using HsumChaint.Domain.Features.Monastery.ServiceInterfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -32,12 +32,12 @@ namespace HsumChaint.API.Features.Monastery.Controllers
             }
 
             var response = await _monasteryService.CreateMonastery(currentUserId.Value, request);
-            return ToActionResult(response);
+            return response.ToActionResult();
         }
 
         [HttpGet("mine")]
         [HasPermission(Permissions.Monastery.View)]
-        public async Task<IActionResult> GetMine()
+        public async Task<IActionResult> GetMine([FromQuery] PaginationRequest pagination)
         {
             var currentUserId = User.GetCurrentUserId();
             if (!currentUserId.HasValue)
@@ -45,8 +45,8 @@ namespace HsumChaint.API.Features.Monastery.Controllers
                 return Unauthorized();
             }
 
-            var response = await _monasteryService.GetMyMonasteries(currentUserId.Value);
-            return ToActionResult(response);
+            var response = await _monasteryService.GetMyMonasteries(currentUserId.Value, pagination);
+            return response.ToActionResult();
         }
 
         [HttpGet("{id}")]
@@ -60,7 +60,7 @@ namespace HsumChaint.API.Features.Monastery.Controllers
             }
 
             var response = await _monasteryService.GetMonastery(currentUserId.Value, id);
-            return ToActionResult(response);
+            return response.ToActionResult();
         }
 
         [HttpPut("{id}")]
@@ -74,7 +74,7 @@ namespace HsumChaint.API.Features.Monastery.Controllers
             }
 
             var response = await _monasteryService.UpdateMonastery(currentUserId.Value, id, request);
-            return ToActionResult(response);
+            return response.ToActionResult();
         }
 
         [HttpPost("{id}/invitations")]
@@ -88,7 +88,7 @@ namespace HsumChaint.API.Features.Monastery.Controllers
             }
 
             var response = await _monasteryService.InviteMember(currentUserId.Value, id, request);
-            return ToActionResult(response);
+            return response.ToActionResult();
         }
 
         [HttpPost("invitations/{invitationId}/respond")]
@@ -101,12 +101,12 @@ namespace HsumChaint.API.Features.Monastery.Controllers
             }
 
             var response = await _monasteryService.RespondToInvitation(currentUserId.Value, invitationId, request);
-            return ToActionResult(response);
+            return response.ToActionResult();
         }
 
         [HttpGet("{id}/members")]
         [HasPermission(Permissions.Monastery.View)]
-        public async Task<IActionResult> GetMembers(int id)
+        public async Task<IActionResult> GetMembers(int id, [FromQuery] PaginationRequest pagination)
         {
             var currentUserId = User.GetCurrentUserId();
             if (!currentUserId.HasValue)
@@ -114,8 +114,8 @@ namespace HsumChaint.API.Features.Monastery.Controllers
                 return Unauthorized();
             }
 
-            var response = await _monasteryService.GetMembers(currentUserId.Value, id);
-            return ToActionResult(response);
+            var response = await _monasteryService.GetMembers(currentUserId.Value, id, pagination);
+            return response.ToActionResult();
         }
 
         [HttpPut("{id}/members/{memberUserId}/role")]
@@ -129,7 +129,7 @@ namespace HsumChaint.API.Features.Monastery.Controllers
             }
 
             var response = await _monasteryService.UpdateMemberRole(currentUserId.Value, id, memberUserId, request);
-            return ToActionResult(response);
+            return response.ToActionResult();
         }
 
         [HttpDelete("{id}/members/{memberUserId}")]
@@ -143,28 +143,8 @@ namespace HsumChaint.API.Features.Monastery.Controllers
             }
 
             var response = await _monasteryService.RemoveMember(currentUserId.Value, id, memberUserId);
-            return ToActionResult(response);
+            return response.ToActionResult();
         }
 
-        private IActionResult ToActionResult<T>(ApplicationCommonResponseModel<T> response) where T : class
-        {
-            if (response.IsSuccess == true)
-            {
-                return Ok(response);
-            }
-
-            if (response.Message?.Contains("not found", StringComparison.OrdinalIgnoreCase) == true)
-            {
-                return NotFound(response);
-            }
-
-            if (response.Message?.Contains("not authorized", StringComparison.OrdinalIgnoreCase) == true
-                || response.Message?.Contains("not a member", StringComparison.OrdinalIgnoreCase) == true)
-            {
-                return StatusCode(StatusCodes.Status403Forbidden, response);
-            }
-
-            return BadRequest(response);
-        }
     }
 }

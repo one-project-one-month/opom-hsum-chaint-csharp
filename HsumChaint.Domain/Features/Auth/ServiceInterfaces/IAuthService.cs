@@ -1,13 +1,14 @@
+using HsumChaint.Shared;
 using HsumChaint.Domain.Features.Auth.DTOs;
 
 namespace HsumChaint.Domain.Features.Auth.ServiceInterfaces
 {
     public interface IAuthService
     {
-        Task<ApplicationCommonResponseModel<LoginResponseDto>> Login(LoginRequestDto reqModel);
-        Task<ApplicationCommonResponseModel<RegisterResponseDto>> Register(RegisterRequestDto reqModel);
+        Task<Result<LoginResponseDto>> Login(LoginRequestDto reqModel);
+        Task<Result> Register(RegisterRequestDto reqModel);
 
-        Task<ApplicationCommonResponseModel<LoginResponseDto>> RefreshTokens(RefreshTokenRequestDto request);
+        Task<Result<LoginResponseDto>> RefreshTokens(RefreshTokenRequestDto request);
     }
 }
 
