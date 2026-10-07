@@ -1,5 +1,3 @@
-using HsumChaint.Shared.CommonEnum;
-
 using System;
 using System.Collections.Generic;
 
@@ -9,13 +7,13 @@ public partial class User
 {
     public int Id { get; set; }
 
+    public int RoleId { get; set; }
+
     public string Name { get; set; } = null!;
 
     public string PhoneNumber { get; set; } = null!;
 
     public string Password { get; set; } = null!;
-
-    public UserType UserType { get; set; }
 
     public string? Email { get; set; }
 
@@ -28,4 +26,6 @@ public partial class User
     public DateTime? UpdatedAt { get; set; }
 
     public bool? IsDeleted { get; set; }
+
+    public virtual Role? Role { get; set; }
 }
