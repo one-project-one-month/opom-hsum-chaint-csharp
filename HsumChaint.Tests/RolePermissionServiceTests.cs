@@ -29,8 +29,10 @@ public class RolePermissionServiceTests
         Assert.True((await service.AssignPermissions(new() { RoleId = id, PermissionIds = new() { 11 } })).IsSuccess);
         Assert.Equal(2, await db.RolePermissions.CountAsync(rp => rp.RoleId == id));
         Assert.Equal("Donation.View", (await service.GetRoleById(id)).Data!.Permissions.Single().Name);
-        Assert.Contains((await service.GetRoles()).ListData!, r => r.Id == id && r.Name == "Custom Reviewer");
-        Assert.Equal(Permissions.All.Count, (await service.GetPermissions()).ListData!.Count);
+        Assert.Contains((await service.GetRoles()).Data!, r => r.Id == id && r.Name == "Custom Reviewer");
+        var permissions = await service.GetPermissions();
+        Assert.Equal(10, permissions.Data.Count);
+        Assert.Equal(Permissions.All.Count, permissions.Pagination.TotalCount);
         Assert.True((await service.DeleteRole(id)).Data);
         Assert.False((await service.GetRoleById(id)).IsSuccess);
     }

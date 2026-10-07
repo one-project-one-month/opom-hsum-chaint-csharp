@@ -31,7 +31,7 @@ public class MonasteryServiceTests
         Assert.Equal("Viewer", (await service.RespondToInvitation(3, db.Invitations.Single().Id,
             new() { Status = InvitationStatus.Accept })).Data!.RoleName);
         Assert.True((await service.UpdateMemberRole(2, 10, 3, new() { RoleId = 4 })).IsSuccess);
-        Assert.Equal("Editor", (await service.GetMembers(2, 10)).ListData!.Single(m => m.UserId == 3).RoleName);
+        Assert.Equal("Editor", (await service.GetMembers(2, 10)).Data!.Single(m => m.UserId == 3).RoleName);
         mapping.IsDeleted = true;
         await db.SaveChangesAsync();
         Assert.False((await service.RemoveMember(2, 10, 3)).IsSuccess);

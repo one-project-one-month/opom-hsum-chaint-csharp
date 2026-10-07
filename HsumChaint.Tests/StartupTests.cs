@@ -1,3 +1,4 @@
+using HsumChaint.Shared;
 using HsumChaint.Database.Models;
 using HsumChaint.Domain.Features.Auth.ServiceInterfaces;
 using HsumChaint.Domain.Features.Donation.ServiceInterfaces;
@@ -124,12 +125,24 @@ public class StartupTests
         var login = await System.Net.Http.Json.HttpClientJsonExtensions.PostAsJsonAsync(client, "/api/v1/auth/login",
             new { PhoneNumber = "09100000002", Password = "Passw0rd!" });
         Assert.Equal(System.Net.HttpStatusCode.OK, login.StatusCode);
-        var response = await System.Net.Http.Json.HttpContentJsonExtensions.ReadFromJsonAsync<HsumChaint.Domain.ApplicationCommonResponseModel<HsumChaint.Domain.Features.Auth.DTOs.LoginResponseDto>>(login.Content);
+        var response = await System.Net.Http.Json.HttpContentJsonExtensions.ReadFromJsonAsync<HsumChaint.Shared.Result<HsumChaint.Domain.Features.Auth.DTOs.LoginResponseDto>>(login.Content);
         Assert.Equal(15, response!.Data!.Permissions.Count);
         client.DefaultRequestHeaders.Authorization = new("Bearer", response.Data.AccessToken);
         Assert.Equal(System.Net.HttpStatusCode.OK, (await client.GetAsync("/api/v1/roles")).StatusCode);
         Assert.Equal(System.Net.HttpStatusCode.OK, (await client.GetAsync("/api/v1/permissions")).StatusCode);
         Assert.Equal(System.Net.HttpStatusCode.OK, (await client.GetAsync("/api/User")).StatusCode);
+        var permissionPageResponse = await client.GetAsync("/api/v1/permissions?pageNumber=2&pageSize=3");
+        Assert.Equal(System.Net.HttpStatusCode.OK, permissionPageResponse.StatusCode);
+        using var permissionPage = System.Text.Json.JsonDocument.Parse(await permissionPageResponse.Content.ReadAsStringAsync());
+        Assert.Equal(3, permissionPage.RootElement.GetProperty("data").GetArrayLength());
+        Assert.False(permissionPage.RootElement.TryGetProperty("listData", out _));
+        var pagination = permissionPage.RootElement.GetProperty("pagination");
+        Assert.Equal(2, pagination.GetProperty("pageNumber").GetInt32());
+        Assert.Equal(3, pagination.GetProperty("pageSize").GetInt32());
+        Assert.Equal(15, pagination.GetProperty("totalCount").GetInt32());
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, (await client.GetAsync("/api/User?pageNumber=0")).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, (await client.GetAsync("/api/User/999")).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.Forbidden, (await client.GetAsync("/api/v1/donations?monasterySpaceId=999")).StatusCode);
         var create = await System.Net.Http.Json.HttpClientJsonExtensions.PostAsJsonAsync(client, "/api/v1/roles",
             new { Name = "Custom API Reviewer", PermissionIds = new[] { 13 } });
         Assert.Equal(System.Net.HttpStatusCode.OK, create.StatusCode);
@@ -153,7 +166,7 @@ public class StartupTests
         Assert.Equal(System.Net.HttpStatusCode.Unauthorized, anonymousRegister.StatusCode);
         var login = await System.Net.Http.Json.HttpClientJsonExtensions.PostAsJsonAsync(client, "/api/v1/auth/login",
             new { PhoneNumber = "091", Password = "Passw0rd!" });
-        var response = await System.Net.Http.Json.HttpContentJsonExtensions.ReadFromJsonAsync<HsumChaint.Domain.ApplicationCommonResponseModel<HsumChaint.Domain.Features.Auth.DTOs.LoginResponseDto>>(login.Content);
+        var response = await System.Net.Http.Json.HttpContentJsonExtensions.ReadFromJsonAsync<HsumChaint.Shared.Result<HsumChaint.Domain.Features.Auth.DTOs.LoginResponseDto>>(login.Content);
         Assert.Empty(response!.Data!.Permissions);
         client.DefaultRequestHeaders.Authorization = new("Bearer", response.Data.AccessToken);
         Assert.Equal(System.Net.HttpStatusCode.Forbidden, (await client.GetAsync("/api/v1/roles")).StatusCode);

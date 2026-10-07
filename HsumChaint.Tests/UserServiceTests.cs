@@ -24,9 +24,12 @@ public class UserServiceTests
         var response = await userService.GetAllUsers();
 
         Assert.True(response.IsSuccess);
-        Assert.NotNull(response.ListData);
-        Assert.Equal(2, response.ListData!.Count);
-        Assert.Equal("Alice", response.ListData.First().Name);
+        Assert.NotNull(response.Data);
+        Assert.Equal(2, response.Data!.Count);
+        Assert.Equal("Alice", response.Data.First().Name);
+        Assert.Equal(1, response.Pagination.PageNumber);
+        Assert.Equal(10, response.Pagination.PageSize);
+        Assert.Equal(2, response.Pagination.TotalCount);
     }
 
     [Fact]
@@ -55,7 +58,6 @@ public class UserServiceTests
         });
 
         Assert.True(response.IsSuccess);
-        Assert.Null(response.Data);
         Assert.Equal("Updated", (await dbContext.Users.FindAsync(1))!.Name);
     }
 
