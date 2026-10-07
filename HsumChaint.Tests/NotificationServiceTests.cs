@@ -1,4 +1,3 @@
-using AutoMapper;
 using HsumChaint.Database.Models;
 using HsumChaint.Domain.Features.Notification.DTOs;
 using HsumChaint.Domain.Features.Notification.Providers;
@@ -29,7 +28,7 @@ public class NotificationServiceTests
         await dbContext.SaveChangesAsync();
 
         var notificationProvider = new Mock<IFirebaseNotificationProvider>();
-        var notificationService = new NotificationServices(dbContext, notificationProvider.Object, CreateMapper().Object);
+        var notificationService = new NotificationServices(dbContext, notificationProvider.Object);
 
         var response = await notificationService.SendNotificationAndStore(new CreateNotificationRequestDto
         {
@@ -62,7 +61,7 @@ public class NotificationServiceTests
             Type = NotificationType.Donation
         });
         await dbContext.SaveChangesAsync();
-        var notificationService = new NotificationServices(dbContext, Mock.Of<IFirebaseNotificationProvider>(), CreateMapper().Object);
+        var notificationService = new NotificationServices(dbContext, Mock.Of<IFirebaseNotificationProvider>());
 
         var response = await notificationService.ReadNotification(new ReadNotificationRequestDto { UserId = 7, NotificationId = 5 });
 
@@ -85,7 +84,7 @@ public class NotificationServiceTests
             Type = NotificationType.Donation
         });
         await dbContext.SaveChangesAsync();
-        var notificationService = new NotificationServices(dbContext, Mock.Of<IFirebaseNotificationProvider>(), CreateMapper().Object);
+        var notificationService = new NotificationServices(dbContext, Mock.Of<IFirebaseNotificationProvider>());
 
         var response = await notificationService.DeleteNotification(new DeleteNotificationRequestDto { UserId = 7, NotificationId = 9 });
 
@@ -102,60 +101,5 @@ public class NotificationServiceTests
             .Options;
 
         return new AppDbContext(options);
-    }
-
-    private static Mock<IMapper> CreateMapper()
-    {
-        var mapper = new Mock<IMapper>();
-
-        mapper
-            .Setup(x => x.Map<InfrastructureNotification>(It.IsAny<CreateNotificationRequestDto>()))
-            .Returns((CreateNotificationRequestDto request) => new InfrastructureNotification
-            {
-                UserId = request.UserId,
-                Type = ResolveNotificationType(request.NotificationType),
-                Message = request.Message,
-                IsRead = false,
-                IsDelete = false
-            });
-
-        mapper
-            .Setup(x => x.Map<CreateNotificationResponseDto>(It.IsAny<InfrastructureNotification>()))
-            .Returns((InfrastructureNotification notification) => new CreateNotificationResponseDto
-            {
-                UserId = notification.UserId ?? 0,
-                NotificationId = notification.Id,
-                NotificationType = notification.Type.ToString(),
-                Message = notification.Message
-            });
-
-        mapper
-            .Setup(x => x.Map<ReadNotificationResponseDto>(It.IsAny<InfrastructureNotification>()))
-            .Returns((InfrastructureNotification notification) => new ReadNotificationResponseDto
-            {
-                NotificationId = notification.Id,
-                IsRead = notification.IsRead ?? false
-            });
-
-        mapper
-            .Setup(x => x.Map<DeleteNotificationResponseDto>(It.IsAny<InfrastructureNotification>()))
-            .Returns((InfrastructureNotification notification) => new DeleteNotificationResponseDto
-            {
-                NotificationId = notification.Id,
-                IsDeleted = notification.IsDelete ?? false
-            });
-
-        return mapper;
-    }
-
-    private static NotificationType ResolveNotificationType(string? value)
-    {
-        if (!string.IsNullOrWhiteSpace(value) &&
-            Enum.TryParse<NotificationType>(value, ignoreCase: true, out var parsedType))
-        {
-            return parsedType;
-        }
-
-        return NotificationType.System;
     }
 }
