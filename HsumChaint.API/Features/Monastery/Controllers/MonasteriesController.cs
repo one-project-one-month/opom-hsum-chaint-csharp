@@ -1,3 +1,5 @@
+using HsumChaint.API.Authorization;
+using HsumChaint.Shared.Authorization;
 using HsumChaint.API.Extensions;
 using HsumChaint.Domain;
 using HsumChaint.Domain.Features.Monastery.DTOs;
@@ -20,6 +22,7 @@ namespace HsumChaint.API.Features.Monastery.Controllers
         }
 
         [HttpPost]
+        [HasPermission(Permissions.Monastery.Create)]
         public async Task<IActionResult> Create(CreateMonasteryRequestDto request)
         {
             var currentUserId = User.GetCurrentUserId();
@@ -33,6 +36,7 @@ namespace HsumChaint.API.Features.Monastery.Controllers
         }
 
         [HttpGet("mine")]
+        [HasPermission(Permissions.Monastery.View)]
         public async Task<IActionResult> GetMine()
         {
             var currentUserId = User.GetCurrentUserId();
@@ -46,6 +50,7 @@ namespace HsumChaint.API.Features.Monastery.Controllers
         }
 
         [HttpGet("{id}")]
+        [HasPermission(Permissions.Monastery.View)]
         public async Task<IActionResult> Get(int id)
         {
             var currentUserId = User.GetCurrentUserId();
@@ -59,6 +64,7 @@ namespace HsumChaint.API.Features.Monastery.Controllers
         }
 
         [HttpPut("{id}")]
+        [HasPermission(Permissions.Monastery.Update)]
         public async Task<IActionResult> Update(int id, UpdateMonasteryRequestDto request)
         {
             var currentUserId = User.GetCurrentUserId();
@@ -72,6 +78,7 @@ namespace HsumChaint.API.Features.Monastery.Controllers
         }
 
         [HttpPost("{id}/invitations")]
+        [HasPermission(Permissions.Monastery.ManageMembers)]
         public async Task<IActionResult> InviteMember(int id, InviteMemberRequestDto request)
         {
             var currentUserId = User.GetCurrentUserId();
@@ -98,6 +105,7 @@ namespace HsumChaint.API.Features.Monastery.Controllers
         }
 
         [HttpGet("{id}/members")]
+        [HasPermission(Permissions.Monastery.View)]
         public async Task<IActionResult> GetMembers(int id)
         {
             var currentUserId = User.GetCurrentUserId();
@@ -111,6 +119,7 @@ namespace HsumChaint.API.Features.Monastery.Controllers
         }
 
         [HttpPut("{id}/members/{memberUserId}/role")]
+        [HasPermission(Permissions.Monastery.ManageMembers)]
         public async Task<IActionResult> UpdateMemberRole(int id, int memberUserId, UpdateMemberRoleRequestDto request)
         {
             var currentUserId = User.GetCurrentUserId();
@@ -124,6 +133,7 @@ namespace HsumChaint.API.Features.Monastery.Controllers
         }
 
         [HttpDelete("{id}/members/{memberUserId}")]
+        [HasPermission(Permissions.Monastery.ManageMembers)]
         public async Task<IActionResult> RemoveMember(int id, int memberUserId)
         {
             var currentUserId = User.GetCurrentUserId();

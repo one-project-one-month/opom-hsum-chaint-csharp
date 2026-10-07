@@ -1,3 +1,4 @@
+using HsumChaint.Shared.Authorization;
 using HsumChaint.Database.Models;
 using HsumChaint.Domain.Features.Monastery.DTOs;
 using HsumChaint.Domain.Features.Monastery.ServiceInterfaces;
@@ -28,6 +29,13 @@ namespace HsumChaint.Domain.Features.Monastery.Services
                 return response;
             }
 
+            var creator = await _dbContext.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Id == currentUserId && u.IsDeleted == false);
+            if (creator?.Role == null || creator.Role.IsDeleted)
+            {
+                response.IsSuccess = false;
+                response.Message = "User or active role not found.";
+                return response;
+            }
             var monastery = new MonasterySpace
             {
                 MonasteryName = request.MonasteryName,
@@ -43,14 +51,14 @@ namespace HsumChaint.Domain.Features.Monastery.Services
             {
                 UserId = currentUserId,
                 MonasterySpaceId = monastery.Id,
-                Role = MonasteryRole.Owner,
+                RoleId = creator.RoleId,
                 IsOwner = true
             });
             await _dbContext.SaveChangesAsync();
 
             response.IsSuccess = true;
             response.Message = "Monastery created successfully.";
-            response.Data = MapMonastery(monastery, MonasteryRole.Owner, true);
+            response.Data = MapMonastery(monastery, creator.RoleId, creator.Role.Name, true);
             return response;
         }
 
@@ -59,7 +67,7 @@ namespace HsumChaint.Domain.Features.Monastery.Services
             var response = new ApplicationCommonResponseModel<MonasterySpaceDto>();
             var member = await GetMember(currentUserId, monasterySpaceId);
 
-            if (!CanManageMonastery(member))
+            if (!await CanManageMonastery(member))
             {
                 response.IsSuccess = false;
                 response.Message = "User is not authorized to manage this monastery.";
@@ -81,7 +89,7 @@ namespace HsumChaint.Domain.Features.Monastery.Services
 
             response.IsSuccess = true;
             response.Message = "Monastery updated successfully.";
-            response.Data = MapMonastery(monastery, member!.Role, member.IsOwner == true);
+            response.Data = MapMonastery(monastery, member!.RoleId, member.Role?.Name, member.IsOwner == true);
             return response;
         }
 
@@ -110,7 +118,7 @@ namespace HsumChaint.Domain.Features.Monastery.Services
 
             response.IsSuccess = true;
             response.Message = "Monastery retrieved successfully.";
-            response.Data = MapMonastery(monastery, member.Role, member.IsOwner == true);
+            response.Data = MapMonastery(monastery, member.RoleId, member.Role?.Name, member.IsOwner == true);
             return response;
         }
 
@@ -130,7 +138,8 @@ namespace HsumChaint.Domain.Features.Monastery.Services
                     Description = monastery.Description,
                     Address = monastery.Address,
                     CreatedById = monastery.CreatedById,
-                    CurrentUserRole = member.Role,
+                    CurrentUserRoleId = member.RoleId,
+                    CurrentUserRoleName = member.Role != null ? member.Role.Name : null,
                     IsOwner = member.IsOwner == true
                 }).ToListAsync();
 
@@ -145,17 +154,17 @@ namespace HsumChaint.Domain.Features.Monastery.Services
             var response = new ApplicationCommonResponseModel<InvitationResponseDto>();
             var inviter = await GetMember(currentUserId, monasterySpaceId);
 
-            if (!CanManageMonastery(inviter))
+            if (!await CanManageMonastery(inviter))
             {
                 response.IsSuccess = false;
                 response.Message = "User is not authorized to invite monastery members.";
                 return response;
             }
 
-            if (request.Role == MonasteryRole.Owner)
+            if (!await _dbContext.Roles.AnyAsync(r => r.Id == request.RoleId && !r.IsDeleted))
             {
                 response.IsSuccess = false;
-                response.Message = "Owner role cannot be assigned by invitation.";
+                response.Message = "Role not found.";
                 return response;
             }
 
@@ -199,7 +208,8 @@ namespace HsumChaint.Domain.Features.Monastery.Services
                 MonasterySpaceId = monasterySpaceId,
                 InvitedUserId = invitedUser.Id,
                 InvitedById = currentUserId,
-                Role = request.Role,
+                RoleId = request.RoleId,
+                Role = await _dbContext.Roles.FindAsync(request.RoleId),
                 Status = InvitationStatus.Pending,
                 CreatedAt = DateTime.UtcNow
             };
@@ -225,7 +235,7 @@ namespace HsumChaint.Domain.Features.Monastery.Services
                 return response;
             }
 
-            var invitation = await _dbContext.Invitations.FindAsync(invitationId);
+            var invitation = await _dbContext.Invitations.Include(i => i.Role).FirstOrDefaultAsync(i => i.Id == invitationId);
             if (invitation == null)
             {
                 response.IsSuccess = false;
@@ -251,6 +261,13 @@ namespace HsumChaint.Domain.Features.Monastery.Services
 
             if (request.Status == InvitationStatus.Accept)
             {
+                if (invitation.Role == null || invitation.Role.IsDeleted)
+                {
+                    invitation.Status = InvitationStatus.Pending;
+                    response.IsSuccess = false;
+                    response.Message = "Invitation role is inactive or not found.";
+                    return response;
+                }
                 var existingMember = await GetMember(currentUserId, invitation.MonasterySpaceId ?? 0);
                 if (existingMember == null)
                 {
@@ -258,7 +275,7 @@ namespace HsumChaint.Domain.Features.Monastery.Services
                     {
                         UserId = currentUserId,
                         MonasterySpaceId = invitation.MonasterySpaceId,
-                        Role = invitation.Role,
+                        RoleId = invitation.RoleId,
                         IsOwner = false
                     });
                 }
@@ -297,17 +314,17 @@ namespace HsumChaint.Domain.Features.Monastery.Services
             var response = new ApplicationCommonResponseModel<MonasteryMemberDto>();
             var actor = await GetMember(currentUserId, monasterySpaceId);
 
-            if (!CanManageMonastery(actor))
+            if (!await CanManageMonastery(actor))
             {
                 response.IsSuccess = false;
                 response.Message = "User is not authorized to manage monastery members.";
                 return response;
             }
 
-            if (request.Role == MonasteryRole.Owner)
+            if (!await _dbContext.Roles.AnyAsync(r => r.Id == request.RoleId && !r.IsDeleted))
             {
                 response.IsSuccess = false;
-                response.Message = "Owner role cannot be assigned.";
+                response.Message = "Role not found.";
                 return response;
             }
 
@@ -326,7 +343,7 @@ namespace HsumChaint.Domain.Features.Monastery.Services
                 return response;
             }
 
-            member.Role = request.Role;
+            member.RoleId = request.RoleId;
             await _dbContext.SaveChangesAsync();
 
             response.IsSuccess = true;
@@ -340,7 +357,7 @@ namespace HsumChaint.Domain.Features.Monastery.Services
             var response = new ApplicationCommonResponseModel<MonasteryMemberDto>();
             var actor = await GetMember(currentUserId, monasterySpaceId);
 
-            if (!CanManageMonastery(actor))
+            if (!await CanManageMonastery(actor))
             {
                 response.IsSuccess = false;
                 response.Message = "User is not authorized to remove monastery members.";
@@ -374,7 +391,7 @@ namespace HsumChaint.Domain.Features.Monastery.Services
 
         private async Task<MonasteryMember?> GetMember(int userId, int monasterySpaceId)
         {
-            return await _dbContext.MonasteryMembers
+            return await _dbContext.MonasteryMembers.Include(m => m.Role)
                 .FirstOrDefaultAsync(x => x.UserId == userId && x.MonasterySpaceId == monasterySpaceId);
         }
 
@@ -392,7 +409,8 @@ namespace HsumChaint.Domain.Features.Monastery.Services
                     UserName = user.Name,
                     PhoneNumber = user.PhoneNumber,
                     MonasterySpaceId = member.MonasterySpaceId ?? 0,
-                    Role = member.Role,
+                    RoleId = member.RoleId,
+                    RoleName = member.Role != null ? member.Role.Name : null,
                     IsOwner = member.IsOwner == true
                 }).ToListAsync();
         }
@@ -425,12 +443,12 @@ namespace HsumChaint.Domain.Features.Monastery.Services
             });
         }
 
-        private static bool CanManageMonastery(MonasteryMember? member)
+        private async Task<bool> CanManageMonastery(MonasteryMember? member)
         {
-            return member is not null && (member.IsOwner == true || member.Role is MonasteryRole.Owner or MonasteryRole.Admin);
+            return member is not null && (member.IsOwner == true || await _dbContext.RolePermissions.AnyAsync(rp => rp.RoleId == member.RoleId && !rp.IsDeleted && !rp.Role.IsDeleted && !rp.Permission.IsDeleted && rp.Permission.Name == Permissions.Monastery.ManageMembers));
         }
 
-        private static MonasterySpaceDto MapMonastery(MonasterySpace monastery, MonasteryRole? role, bool isOwner)
+        private static MonasterySpaceDto MapMonastery(MonasterySpace monastery, int? roleId, string? roleName, bool isOwner)
         {
             return new MonasterySpaceDto
             {
@@ -439,7 +457,8 @@ namespace HsumChaint.Domain.Features.Monastery.Services
                 Description = monastery.Description,
                 Address = monastery.Address,
                 CreatedById = monastery.CreatedById,
-                CurrentUserRole = role,
+                CurrentUserRoleId = roleId,
+                CurrentUserRoleName = roleName,
                 IsOwner = isOwner
             };
         }
@@ -452,7 +471,8 @@ namespace HsumChaint.Domain.Features.Monastery.Services
                 MonasterySpaceId = invitation.MonasterySpaceId ?? 0,
                 InvitedUserId = invitation.InvitedUserId ?? 0,
                 InvitedById = invitation.InvitedById ?? 0,
-                Role = invitation.Role,
+                RoleId = invitation.RoleId,
+                RoleName = invitation.Role?.Name,
                 Status = invitation.Status,
                 CreatedAt = invitation.CreatedAt
             };

@@ -15,7 +15,8 @@ namespace HsumChaint.Domain.Features.User.DTOs
 
         public int? InvitedById { get; set; }
 
-        public MonasteryRole Role { get; set; }
+        public int RoleId { get; set; }
+        public string? RoleName { get; set; }
 
         public InvitationStatus Status { get; set; }
 

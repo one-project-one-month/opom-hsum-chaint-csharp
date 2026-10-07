@@ -1,3 +1,4 @@
+using HsumChaint.Shared.Authorization;
 using HsumChaint.Database.Models;
 using HsumChaint.Domain.Features.Donation.DTOs;
 using HsumChaint.Domain.Features.Donation.ServiceInterfaces;
@@ -68,7 +69,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
             }
 
             var member = await GetMember(currentUserId, request.MonasterySpaceId);
-            if (!CanManageDonations(member))
+            if (!await CanManageDonations(member))
             {
                 return Fail("User is not authorized to create manual donations for this monastery.");
             }
@@ -212,7 +213,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
             }
 
             var member = await GetMember(currentUserId, donation.MonasterySpaceId ?? 0);
-            if (!CanManageDonations(member))
+            if (!await CanManageDonations(member))
             {
                 return Fail("User is not authorized to review this donation.");
             }
@@ -251,7 +252,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
             }
 
             var member = await GetMember(currentUserId, donation.MonasterySpaceId ?? 0);
-            if (!CanScheduleDonations(member))
+            if (!await CanScheduleDonations(member))
             {
                 return Fail("User is not authorized to schedule this donation.");
             }
@@ -284,7 +285,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
             }
 
             var member = await GetMember(currentUserId, donation.MonasterySpaceId ?? 0);
-            if (!CanScheduleDonations(member))
+            if (!await CanScheduleDonations(member))
             {
                 return Fail("User is not authorized to complete this donation.");
             }
@@ -316,7 +317,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
             }
 
             var member = await GetMember(currentUserId, donation.MonasterySpaceId ?? 0);
-            if (donation.DonorId != currentUserId && !CanManageDonations(member))
+            if (donation.DonorId != currentUserId && !await CanManageDonations(member))
             {
                 return Fail("User is not authorized to cancel this donation.");
             }
@@ -390,7 +391,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
             var managerIds = await _dbContext.MonasteryMembers
                 .AsNoTracking()
                 .Where(x => x.MonasterySpaceId == monasterySpaceId
-                    && (x.IsOwner == true || x.Role == MonasteryRole.Owner || x.Role == MonasteryRole.Admin))
+                    && (x.IsOwner == true || _dbContext.RolePermissions.Any(rp => rp.RoleId == x.RoleId && !rp.IsDeleted && !rp.Role.IsDeleted && !rp.Permission.IsDeleted && rp.Permission.Name == Permissions.Donation.Review)))
                 .Select(x => x.UserId)
                 .Where(x => x.HasValue)
                 .Select(x => x!.Value)
@@ -435,15 +436,18 @@ namespace HsumChaint.Domain.Features.Donation.Services
             }
         }
 
-        private static bool CanManageDonations(MonasteryMember? member)
+        private async Task<bool> CanManageDonations(MonasteryMember? member)
         {
-            return member is not null && (member.IsOwner == true || member.Role is MonasteryRole.Owner or MonasteryRole.Admin);
+            return member is not null && (member.IsOwner == true || await HasRolePermission(member.RoleId, Permissions.Donation.Review));
         }
 
-        private static bool CanScheduleDonations(MonasteryMember? member)
+        private async Task<bool> CanScheduleDonations(MonasteryMember? member)
         {
-            return member is not null && (member.IsOwner == true || member.Role is MonasteryRole.Owner or MonasteryRole.Admin or MonasteryRole.Editor);
+            return member is not null && (member.IsOwner == true || await HasRolePermission(member.RoleId, Permissions.Donation.Schedule));
         }
+
+        private Task<bool> HasRolePermission(int roleId, string permission) => _dbContext.RolePermissions.AnyAsync(rp =>
+            rp.RoleId == roleId && !rp.IsDeleted && !rp.Role.IsDeleted && !rp.Permission.IsDeleted && rp.Permission.Name == permission);
 
         private static DonationDto MapDonation(DonationEntity donation)
         {

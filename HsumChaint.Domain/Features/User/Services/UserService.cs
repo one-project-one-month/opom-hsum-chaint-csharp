@@ -22,9 +22,10 @@ namespace HsumChaint.Domain.Features.User.Services
             var response = new ApplicationCommonResponseModel<List<UserDto>>();
             try
             {
-                List<UserEntity> userList = await _context.Users
+                List<UserEntity> userList = await _context.Users.Include(u => u.Role)
                     .AsNoTracking()
                     .Where(user => user.IsDeleted == false)
+                    .OrderBy(user => user.Id)
                     .ToListAsync();
 
                 response.ListData = userList.Select(MapToDto).ToList();
@@ -47,7 +48,7 @@ namespace HsumChaint.Domain.Features.User.Services
             var response = new ApplicationCommonResponseModel<UserDto>();
             try
             {
-                UserEntity? user = await _context.Users
+                UserEntity? user = await _context.Users.Include(u => u.Role)
                     .AsNoTracking()
                     .FirstOrDefaultAsync(user => user.IsDeleted == false && user.Id == id);
                 
@@ -71,7 +72,7 @@ namespace HsumChaint.Domain.Features.User.Services
             try
             {
                 var userEntity = MapToEntity(user);
-                var existingUser = await _context.Users
+                var existingUser = await _context.Users.Include(u => u.Role)
                     .FirstOrDefaultAsync(dbUser => dbUser.IsDeleted == false && dbUser.Id == userEntity.Id);
 
                 if (existingUser is not null)
@@ -87,9 +88,15 @@ namespace HsumChaint.Domain.Features.User.Services
                         return response;
                     }
 
+                    if (!await _context.Roles.AnyAsync(r => r.Id == userEntity.RoleId && !r.IsDeleted))
+                    {
+                        response.IsSuccess = false;
+                        response.Message = "Role not found.";
+                        return response;
+                    }
                     existingUser.Name = userEntity.Name;
                     existingUser.PhoneNumber = userEntity.PhoneNumber;
-                    existingUser.UserType = userEntity.UserType;
+                    existingUser.RoleId = userEntity.RoleId;
                     existingUser.Email = userEntity.Email;
                     existingUser.ContactPhoneNumber = userEntity.ContactPhoneNumber;
 
@@ -172,7 +179,7 @@ namespace HsumChaint.Domain.Features.User.Services
             var response = new ApplicationCommonResponseModel<List<InvitationDto>>();
             try
             {
-                List<Invitation> invitationList = await _context.Invitations
+                List<Invitation> invitationList = await _context.Invitations.Include(i => i.Role)
                     .AsNoTracking()
                     .Where(invitation => invitation.InvitedUserId == id)
                     .ToListAsync();
@@ -194,7 +201,7 @@ namespace HsumChaint.Domain.Features.User.Services
             var response = new ApplicationCommonResponseModel<List<InvitationDto>>();
             try
             {
-                List<Invitation> invitedByOtherList = await _context.Invitations
+                List<Invitation> invitedByOtherList = await _context.Invitations.Include(i => i.Role)
                     .AsNoTracking()
                     .Where(invitation => invitation.InvitedById == id)
                     .ToListAsync();
@@ -289,7 +296,7 @@ namespace HsumChaint.Domain.Features.User.Services
                 Id = dto.Id,
                 Name = dto.Name ?? string.Empty,
                 PhoneNumber = dto.PhoneNumber ?? string.Empty,
-                UserType = dto.UserType,
+                RoleId = dto.RoleId,
                 Email = dto.Email,
                 ContactPhoneNumber = dto.ContactPhoneNumber
             };
@@ -302,7 +309,8 @@ namespace HsumChaint.Domain.Features.User.Services
                 Id = user.Id,
                 Name = user.Name,
                 PhoneNumber = user.PhoneNumber,
-                UserType = user.UserType,
+                RoleId = user.RoleId,
+                RoleName = user.Role?.Name,
                 Email = user.Email,
                 ContactPhoneNumber = user.ContactPhoneNumber
             };
@@ -316,7 +324,8 @@ namespace HsumChaint.Domain.Features.User.Services
                 MonasterySpaceId = invitation.MonasterySpaceId,
                 InvitedUserId = invitation.InvitedUserId,
                 InvitedById = invitation.InvitedById,
-                Role = invitation.Role,
+                RoleId = invitation.RoleId,
+                RoleName = invitation.Role?.Name,
                 Status = invitation.Status,
                 CreatedAt = invitation.CreatedAt
             };

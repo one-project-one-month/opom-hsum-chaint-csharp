@@ -1,3 +1,5 @@
+using HsumChaint.API.Authorization;
+using HsumChaint.Shared.Authorization;
 using HsumChaint.Domain.Features.Auth.DTOs;
 using HsumChaint.Domain.Features.Auth.ServiceInterfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -19,13 +21,14 @@ namespace HsumChaint.API.Features.Auth.Controllers
 
         #region Register
         [HttpPost("register")]
+        [HasPermission(Permissions.Roles.Assign)]
         public async Task<IActionResult> Register(RegisterRequestDto reqModel)
         {
             var registerResponse = await _authService.Register(reqModel);
             
             if(registerResponse.IsSuccess == true)
             {
-                return Ok(reqModel);
+                return Ok(registerResponse);
             }
 
             return BadRequest(registerResponse);

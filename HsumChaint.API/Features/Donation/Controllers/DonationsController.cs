@@ -1,3 +1,5 @@
+using HsumChaint.API.Authorization;
+using HsumChaint.Shared.Authorization;
 using HsumChaint.API.Extensions;
 using HsumChaint.Domain;
 using HsumChaint.Domain.Features.Donation.DTOs;
@@ -21,6 +23,7 @@ namespace HsumChaint.API.Features.Donation.Controllers
         }
 
         [HttpPost("request")]
+        [HasPermission(Permissions.Donation.Create)]
         public async Task<IActionResult> RequestDonation(CreateDonationRequestDto request)
         {
             var currentUserId = User.GetCurrentUserId();
@@ -34,6 +37,7 @@ namespace HsumChaint.API.Features.Donation.Controllers
         }
 
         [HttpPost("manual")]
+        [HasPermission(Permissions.Donation.Create)]
         public async Task<IActionResult> CreateManualDonation(CreateManualDonationRequestDto request)
         {
             var currentUserId = User.GetCurrentUserId();
@@ -47,6 +51,7 @@ namespace HsumChaint.API.Features.Donation.Controllers
         }
 
         [HttpGet]
+        [HasPermission(Permissions.Donation.View)]
         public async Task<IActionResult> GetDonations(
             [FromQuery] int? monasterySpaceId,
             [FromQuery] int? donorId,
@@ -72,6 +77,7 @@ namespace HsumChaint.API.Features.Donation.Controllers
         }
 
         [HttpGet("{id}")]
+        [HasPermission(Permissions.Donation.View)]
         public async Task<IActionResult> GetDonation(int id)
         {
             var currentUserId = User.GetCurrentUserId();
@@ -85,6 +91,7 @@ namespace HsumChaint.API.Features.Donation.Controllers
         }
 
         [HttpPut("{id}/review")]
+        [HasPermission(Permissions.Donation.Review)]
         public async Task<IActionResult> ReviewDonation(int id, ReviewDonationRequestDto request)
         {
             var currentUserId = User.GetCurrentUserId();
@@ -98,6 +105,7 @@ namespace HsumChaint.API.Features.Donation.Controllers
         }
 
         [HttpPut("{id}/schedule")]
+        [HasPermission(Permissions.Donation.Schedule)]
         public async Task<IActionResult> ScheduleDonation(int id, ScheduleDonationRequestDto request)
         {
             var currentUserId = User.GetCurrentUserId();
@@ -111,6 +119,7 @@ namespace HsumChaint.API.Features.Donation.Controllers
         }
 
         [HttpPut("{id}/complete")]
+        [HasPermission(Permissions.Donation.Schedule)]
         public async Task<IActionResult> CompleteDonation(int id)
         {
             var currentUserId = User.GetCurrentUserId();
@@ -124,6 +133,7 @@ namespace HsumChaint.API.Features.Donation.Controllers
         }
 
         [HttpPut("{id}/cancel")]
+        [HasPermission(Permissions.Donation.Cancel)]
         public async Task<IActionResult> CancelDonation(int id)
         {
             var currentUserId = User.GetCurrentUserId();

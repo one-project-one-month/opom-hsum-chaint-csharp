@@ -1,7 +1,7 @@
 using HsumChaint.Database.Models;
 using HsumChaint.Domain.Features.Auth.DTOs;
 using HsumChaint.Domain.Features.Auth.ServiceInterfaces;
-using HsumChaint.Shared.CommonEnum;
+using HsumChaint.Domain.Features.RolePermission.ServiceInterfaces;
 using HsumChaint.Shared.Configuration;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -20,12 +20,14 @@ namespace HsumChaint.Domain.Features.Auth.Services
         private readonly AppDbContext _dbContext;
         private readonly IPasswordHasher<UserEntity> _passwordHasher;
         private readonly JwtOptions _jwtOptions;
+        private readonly IRolePermissionService _rolePermissionService;
 
-        public AuthService(AppDbContext dbContext, IPasswordHasher<UserEntity> passwordHasher, IOptions<JwtOptions> jwtOptions)
+        public AuthService(AppDbContext dbContext, IPasswordHasher<UserEntity> passwordHasher, IOptions<JwtOptions> jwtOptions, IRolePermissionService rolePermissionService)
         {
             _dbContext = dbContext;
             _passwordHasher = passwordHasher;
             _jwtOptions = jwtOptions.Value;
+            _rolePermissionService = rolePermissionService;
         }
 
         #region Register
@@ -34,7 +36,13 @@ namespace HsumChaint.Domain.Features.Auth.Services
             var response = new ApplicationCommonResponseModel<RegisterResponseDto>();
             try
             {
-                var existingUser = await _dbContext.Users
+                if (string.IsNullOrWhiteSpace(reqModel.Name) || string.IsNullOrWhiteSpace(reqModel.PhoneNumber) || string.IsNullOrWhiteSpace(reqModel.Password))
+                {
+                    response.IsSuccess = false;
+                    response.Message = "Name, phone number and password are required.";
+                    return response;
+                }
+                var existingUser = await _dbContext.Users.Include(u => u.Role)
                     .FirstOrDefaultAsync(x => x.PhoneNumber == reqModel.PhoneNumber && x.IsDeleted == false);
 
                 #region Phone Number Duplicate validation
@@ -46,17 +54,22 @@ namespace HsumChaint.Domain.Features.Auth.Services
                 }
                 #endregion
 
+                var selectedRole = await _dbContext.Roles.FirstOrDefaultAsync(r => r.Id == reqModel.RoleId && !r.IsDeleted);
+                if (selectedRole == null)
+                {
+                    response.IsSuccess = false;
+                    response.Message = "Role not found.";
+                    return response;
+                }
                 UserEntity user = new UserEntity();
                 var hashedPassword = _passwordHasher.HashPassword(user, reqModel.Password);
 
-                reqModel.Password = hashedPassword;
-
                 var registerUser = new UserEntity
                 {
-                    Name = reqModel.Name,
-                    PhoneNumber = reqModel.PhoneNumber,
-                    Password = reqModel.Password,
-                    UserType = reqModel.UserType,
+                    Name = reqModel.Name!,
+                    PhoneNumber = reqModel.PhoneNumber!,
+                    Password = hashedPassword,
+                    RoleId = reqModel.RoleId,
                     Email = reqModel.Email,
                     ContactPhoneNumber = reqModel.ContactPhoneNumber,
                     CreatedAt = DateTime.UtcNow,
@@ -66,10 +79,8 @@ namespace HsumChaint.Domain.Features.Auth.Services
                 await _dbContext.Users.AddAsync(registerUser);
                 await _dbContext.SaveChangesAsync();
 
-                bool hasMonasteryInfo = !string.IsNullOrEmpty(reqModel.MonasteryName) || !string.IsNullOrEmpty(reqModel.MonasteryAddress);
-
-                // Reigseter Monk Profile
-                if (reqModel.UserType == UserType.Monk && hasMonasteryInfo)
+                // Create a profile for the selected Monk role.
+                if (selectedRole.Name == "Monk")
                 {
                     await _dbContext.MonkProfiles.AddAsync(new MonkProfile
                     {
@@ -80,7 +91,7 @@ namespace HsumChaint.Domain.Features.Auth.Services
                     await _dbContext.SaveChangesAsync();
 
                     response.IsSuccess = true;
-                    response.Message = "Register Successful\nRegister Successful";
+                    response.Message = "Register Successful";
                 }
                 else
                 {
@@ -106,10 +117,10 @@ namespace HsumChaint.Domain.Features.Auth.Services
 
             try
             {
-                var existingUser = await _dbContext.Users
+                var existingUser = await _dbContext.Users.Include(u => u.Role)
                     .FirstOrDefaultAsync(x => x.PhoneNumber == reqModel.PhoneNumber && x.IsDeleted == false);
 
-                if (existingUser == null)
+                if (existingUser == null || existingUser.Role == null || existingUser.Role.IsDeleted)
                 {
                     response.IsSuccess = false;
                     response.Message = "Phone number or password incorrect!";
@@ -125,7 +136,8 @@ namespace HsumChaint.Domain.Features.Auth.Services
                     return response;
                 }
 
-                string Token = this.GenerateToken(existingUser.Id, existingUser.PhoneNumber, existingUser.UserType.ToString());
+                var permissions = await _rolePermissionService.GetUserPermissions(existingUser.Id);
+                string Token = this.GenerateToken(existingUser.Id, existingUser.PhoneNumber, existingUser.Role.Name, permissions);
                 string refreshToken = await this.GenerateAndSaveRefreshToken(new GenerateRefreshTokenDto { UserId = existingUser.Id });
 
                 response.IsSuccess = true;
@@ -133,7 +145,9 @@ namespace HsumChaint.Domain.Features.Auth.Services
                 response.Data = new LoginResponseDto
                 {
                     AccessToken = Token,
-                    UserType = existingUser.UserType,
+                    RoleId = existingUser.RoleId,
+                    RoleName = existingUser.Role.Name,
+                    Permissions = permissions,
                     ID = existingUser.Id,
                     RefreshToken = refreshToken
                 };
@@ -158,17 +172,18 @@ namespace HsumChaint.Domain.Features.Auth.Services
 
                 if (isValidRefreshToken)
                 {
-                    var existingUser = await _dbContext.Users
+                    var existingUser = await _dbContext.Users.Include(u => u.Role)
                         .FirstOrDefaultAsync(x => x.Id == request.UserId && x.IsDeleted == false);
 
-                    if (existingUser == null)
+                    if (existingUser == null || existingUser.Role == null || existingUser.Role.IsDeleted)
                     {
                         response.IsSuccess = false;
                         response.Message = "User not found";
                         return response;
                     }
 
-                    string Token = this.GenerateToken(existingUser.Id, existingUser.PhoneNumber, existingUser.UserType.ToString());
+                    var permissions = await _rolePermissionService.GetUserPermissions(existingUser.Id);
+                    string Token = this.GenerateToken(existingUser.Id, existingUser.PhoneNumber, existingUser.Role.Name, permissions);
                     string refreshToken = await this.GenerateAndSaveRefreshToken(new GenerateRefreshTokenDto { UserId = existingUser.Id });
 
                     response.IsSuccess = true;
@@ -176,7 +191,9 @@ namespace HsumChaint.Domain.Features.Auth.Services
                     response.Data = new LoginResponseDto
                     {
                         AccessToken = Token,
-                        UserType = existingUser.UserType,
+                        RoleId = existingUser.RoleId,
+                        RoleName = existingUser.Role.Name,
+                        Permissions = permissions,
                         ID = existingUser.Id,
                         RefreshToken = refreshToken
                     };
@@ -198,14 +215,16 @@ namespace HsumChaint.Domain.Features.Auth.Services
         #endregion
 
         #region GenerateToken
-        private string GenerateToken(int userId, string phoneNumber, string userType)
+        private string GenerateToken(int userId, string phoneNumber, string roleName, List<string> permissions)
         {
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
                 new Claim(ClaimTypes.MobilePhone, phoneNumber),
-                new Claim(ClaimTypes.Role, userType)
+                new Claim(ClaimTypes.Role, roleName)
             };
+
+            claims.AddRange(permissions.Select(permission => new Claim("permission", permission)));
 
             var key = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(_jwtOptions.Key ?? string.Empty)

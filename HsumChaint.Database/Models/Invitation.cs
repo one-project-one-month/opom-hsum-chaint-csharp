@@ -14,7 +14,9 @@ public partial class Invitation
 
     public int? InvitedById { get; set; }
 
-    public int Role { get; set; } = 3;
+    public int RoleId { get; set; }
+
+    public virtual Role? Role { get; set; }
 
     public InvitationStatus Status { get; set; }
 

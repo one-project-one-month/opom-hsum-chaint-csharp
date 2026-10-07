@@ -1,3 +1,5 @@
+using HsumChaint.API.Authorization;
+using HsumChaint.Shared.Authorization;
 using HsumChaint.Domain.Features.User.DTOs;
 using HsumChaint.Domain.Features.User.ServiceInterfaces;
 
@@ -17,6 +19,7 @@ namespace HsumChaint.API.Features.User.Controllers
         }
 
         [HttpGet]
+        [HasPermission(Permissions.Users.View)]
         public async Task<IActionResult> GetAllUsers()
         {
             var userList = await _userService.GetAllUsers();
@@ -28,6 +31,7 @@ namespace HsumChaint.API.Features.User.Controllers
         }
 
         [HttpGet("{id}")]
+        [HasPermission(Permissions.Users.View)]
         public async Task<IActionResult> GetUser(int id)
         {
             var user = await _userService.GetUser(id);
@@ -39,6 +43,8 @@ namespace HsumChaint.API.Features.User.Controllers
         }
 
         [HttpPut]
+        [HasPermission(Permissions.Users.Manage)]
+        [HasPermission(Permissions.Roles.Assign)]
         public async Task<IActionResult> PutUser(UserDto user)
         {
             var updatedResult = await _userService.PutUser(user);
@@ -50,6 +56,7 @@ namespace HsumChaint.API.Features.User.Controllers
         }
 
         [HttpDelete("{id}")]
+        [HasPermission(Permissions.Users.Manage)]
         public async Task<IActionResult> DeleteUser(int id)
         {
             var deletedResult = await _userService.DeleteUser(id);
@@ -64,6 +71,7 @@ namespace HsumChaint.API.Features.User.Controllers
 
         // GET Invitations List from user
         [HttpGet("{id}/invitations")]
+        [HasPermission(Permissions.Users.View)]
         public async Task<IActionResult> GetUserInvitationList(int id)
         {
             var invitationList = await _userService.GetUserInvitationList(id);
@@ -76,6 +84,7 @@ namespace HsumChaint.API.Features.User.Controllers
 
         // GET List of Invited By Other User
         [HttpGet("{id}/invited-by-list")]
+        [HasPermission(Permissions.Users.View)]
         public async Task<IActionResult> GetInvitedByOtherList(int id)
         {
             var invitedByOtherList = await _userService.GetInvitedByOtherList(id);
@@ -92,6 +101,7 @@ namespace HsumChaint.API.Features.User.Controllers
 
         // GET Invitations List for user
         [HttpGet("{id}/notification")]
+        [HasPermission(Permissions.Users.View)]
         public async Task<IActionResult> GetUserNotificationList(int id)
         {
             var notificationList = await _userService.GetUserNotificationList(id);
@@ -104,6 +114,7 @@ namespace HsumChaint.API.Features.User.Controllers
 
         // GET List of Invited By Other User
         [HttpDelete("{id}/notification")]
+        [HasPermission(Permissions.Users.Manage)]
         public async Task<IActionResult> DeleteUserNotificationList(int id)
         {
             var deletedNotificationResult = await _userService.DeleteUserNotificationList(id);

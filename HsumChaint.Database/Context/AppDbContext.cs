@@ -227,7 +227,8 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.InvitedById).HasColumnName("invited_by_id");
             entity.Property(e => e.InvitedUserId).HasColumnName("invited_user_id");
             entity.Property(e => e.MonasterySpaceId).HasColumnName("monastery_space_id");
-            entity.Property(e => e.Role).HasColumnName("role");
+            entity.Property(e => e.RoleId).HasColumnName("role");
+            entity.HasOne(e => e.Role).WithMany().HasForeignKey(e => e.RoleId).OnDelete(DeleteBehavior.Restrict);
             entity.Property(e => e.Status).HasColumnName("status").HasConversion<int>();
         });
 

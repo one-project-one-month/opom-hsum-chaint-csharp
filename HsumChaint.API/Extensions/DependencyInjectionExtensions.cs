@@ -1,3 +1,6 @@
+using HsumChaint.API.Authorization;
+using HsumChaint.Shared.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -16,6 +19,12 @@ public static class DependencyInjectionExtensions
     public static IServiceCollection AddApiServices(this IServiceCollection services)
     {
         services.AddControllers();
+        services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
+        services.AddAuthorization(options =>
+        {
+            foreach (var permission in Permissions.All)
+                options.AddPolicy(permission, policy => policy.RequireAuthenticatedUser().AddRequirements(new PermissionRequirement(permission)));
+        });
         services.AddOpenApi();
         services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 
