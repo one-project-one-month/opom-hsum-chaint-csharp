@@ -66,7 +66,7 @@ flowchart LR
   Db --> Models["Database-first table models"]
   Service --> Provider["Domain Notification Provider"]
   Service --> Mapper["Manual Mappings"]
-  Service --> Response["ApplicationCommonResponseModel / DTOs"]
+  Service --> Response["Result / PagedResult / DTOs"]
   Response --> Controllers --> Result["HTTP Response"]
 ```
 
@@ -135,6 +135,32 @@ flowchart LR
 - `PUT /api/v1/donations/{id}/cancel`
 
 ## 5) Development commands
+
+### Result responses and pagination
+
+Services return the shared `Result` or `Result<T>` models for commands and individual records. Collection endpoints return `PagedResult<T>` with items in `data` and page metadata in `pagination`; the old `listData` field has been removed.
+
+User, invitation, notification, monastery, member, donation, role, and permission list endpoints accept `pageNumber` (default `1`) and `pageSize` (default `10`). For example, `GET /api/v1/donations?pageNumber=2&pageSize=10` returns the second page of the current user's donations. Existing donation filters can be combined with page parameters. Counts reflect the filtered, authorized query before paging. Empty pages are successful responses with an empty `data` array.
+
+```json
+{
+  "isSuccess": true,
+  "message": "Donations retrieved successfully.",
+  "isFailure": false,
+  "data": [],
+  "pagination": {
+    "pageNumber": 1,
+    "pageSize": 10,
+    "totalCount": 0,
+    "totalPages": 0,
+    "hasPreviousPage": false,
+    "hasNextPage": false
+  }
+}
+```
+
+Page values must be positive and produce an offset within the supported integer range. Invalid pagination returns HTTP 400. The shared controller mapping returns HTTP 200 for success, 404 for missing records, 403 for denied access, and 400 for other service failures. Clients that previously consumed whole collections must request subsequent pages using the pagination metadata.
+
 - Build: `dotnet build HsumChaint.slnx`
 - Tests: `dotnet test HsumChaint.Tests/HsumChaint.Tests.csproj`
 - Run API: `dotnet run --project HsumChaint.API`
