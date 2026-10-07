@@ -1,3 +1,4 @@
+using HsumChaint.Domain.Features.RolePermission.Services;
 using HsumChaint.Database.Models;
 using HsumChaint.Domain.Features.Auth.DTOs;
 using HsumChaint.Domain.Features.Auth.Services;
@@ -14,6 +15,66 @@ namespace HsumChaint.Tests;
 public class AuthServiceTests
 {
     [Fact]
+    public async Task LoginAndRefresh_LoadActivePermissionClaimsFromDatabase()
+    {
+        await using var db = CreateDbContext();
+        var user = CreateUser("09100000002", "Passw0rd!");
+        user.RoleId = 1;
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+        var login = await service.Login(new() { PhoneNumber = user.PhoneNumber, Password = "Passw0rd!" });
+        Assert.True(login.IsSuccess);
+        Assert.Equal("Admin", login.Data!.RoleName);
+        Assert.Equal(HsumChaint.Shared.Authorization.Permissions.All.OrderBy(p => p), login.Data.Permissions);
+        var jwt = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler().ReadJwtToken(login.Data.AccessToken);
+        Assert.Equal(login.Data.Permissions, jwt.Claims.Where(c => c.Type == "permission").Select(c => c.Value));
+        Assert.Contains(jwt.Claims, c => c.Type == System.Security.Claims.ClaimTypes.Role && c.Value == "Admin");
+        Assert.Contains(jwt.Claims, c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier && c.Value == user.Id.ToString());
+
+        db.RolePermissions.First(rp => rp.RoleId == 1 && rp.PermissionId == 1).IsDeleted = true;
+        db.Permissions.Find(2)!.IsDeleted = true;
+        await db.SaveChangesAsync();
+        var refreshed = await service.RefreshTokens(new() { UserId = user.Id, RefreshToken = login.Data.RefreshToken });
+        Assert.True(refreshed.IsSuccess);
+        Assert.Equal(13, refreshed.Data!.Permissions.Count);
+        Assert.DoesNotContain("Roles.View", refreshed.Data.Permissions);
+        Assert.DoesNotContain("Roles.Manage", refreshed.Data.Permissions);
+        jwt = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler().ReadJwtToken(refreshed.Data.AccessToken);
+        Assert.Equal(refreshed.Data.Permissions, jwt.Claims.Where(c => c.Type == "permission").Select(c => c.Value));
+    }
+
+    [Fact]
+    public async Task Register_ValidatesRole_AndCreatesMonkProfileWithoutMonasteryDetails()
+    {
+        await using var db = CreateDbContext();
+        var service = CreateService(db);
+        var request = new RegisterRequestDto { Name = "Monk", PhoneNumber = "091", Password = "Passw0rd!", RoleId = 999 };
+        Assert.False((await service.Register(request)).IsSuccess);
+        Assert.Empty(db.Users);
+        request.RoleId = 2;
+        Assert.True((await service.Register(request)).IsSuccess);
+        Assert.Equal(2, db.Users.Single().RoleId);
+        Assert.Equal(db.Users.Single().Id, db.MonkProfiles.Single().UserId);
+        Assert.Equal("Passw0rd!", request.Password);
+    }
+
+    [Fact]
+    public async Task LoginAndRefresh_RejectInactiveRole()
+    {
+        await using var db = CreateDbContext();
+        var user = CreateUser("091", "Passw0rd!");
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+        var login = await service.Login(new() { PhoneNumber = "091", Password = "Passw0rd!" });
+        db.Roles.Find(3)!.IsDeleted = true;
+        await db.SaveChangesAsync();
+        Assert.False((await service.Login(new() { PhoneNumber = "091", Password = "Passw0rd!" })).IsSuccess);
+        Assert.False((await service.RefreshTokens(new() { UserId = user.Id, RefreshToken = login.Data!.RefreshToken })).IsSuccess);
+    }
+
+    [Fact]
     public async Task Register_CreatesUser_WhenPhoneNumberIsNew()
     {
         await using var dbContext = CreateDbContext();
@@ -24,7 +85,7 @@ public class AuthServiceTests
             Name = "Test User",
             PhoneNumber = "1234567890",
             Password = "Passw0rd!",
-            UserType = UserType.User,
+            RoleId = 3,
             Email = "test@hsumchaint.local"
         });
 
@@ -53,7 +114,7 @@ public class AuthServiceTests
         Assert.NotNull(response.Data);
         Assert.False(string.IsNullOrWhiteSpace(response.Data?.AccessToken));
         Assert.False(string.IsNullOrWhiteSpace(response.Data?.RefreshToken));
-        Assert.Equal(UserType.User, response.Data!.UserType);
+        Assert.Equal(3, response.Data!.RoleId);
         Assert.NotNull(await dbContext.RefreshTokens.FirstOrDefaultAsync(x => x.UserId == response.Data.ID));
     }
 
@@ -94,7 +155,9 @@ public class AuthServiceTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
 
-        return new AppDbContext(options);
+        var context = new AppDbContext(options);
+        RbacTestData.Seed(context);
+        return context;
     }
 
     private static AuthService CreateService(AppDbContext dbContext)
@@ -107,7 +170,7 @@ public class AuthServiceTests
                 Issuer = "https://hsumchaint.local/",
                 Audience = "https://hsumchaint.local/",
                 Key = "ThisisTheSuperSecureKeyForOPOMProjectCalledHsumChaintAndThisKeyNeedsToBeAtLeast64BytesBecuaseItUsesHmacSha512"
-            }));
+            }), new RolePermissionService(dbContext));
     }
 
     private static InfrastructureUser CreateUser(string phoneNumber, string password)
@@ -117,7 +180,7 @@ public class AuthServiceTests
             Id = 1,
             PhoneNumber = phoneNumber,
             Name = "Test User",
-            UserType = UserType.User,
+            RoleId = 3,
             Email = "test@hsumchaint.local",
             IsDeleted = false
         };

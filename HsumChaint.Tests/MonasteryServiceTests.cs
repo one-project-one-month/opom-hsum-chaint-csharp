@@ -10,6 +10,36 @@ namespace HsumChaint.Tests;
 public class MonasteryServiceTests
 {
     [Fact]
+    public async Task CustomRole_ManageMembersPermission_ControlsMembershipOperations()
+    {
+        await using var db = CreateDbContext();
+        SeedUser(db, 1, "Owner", "091");
+        SeedUser(db, 2, "Custom Manager", "092");
+        SeedUser(db, 3, "Invitee", "093");
+        SeedMonastery(db, 10, 1);
+        db.Roles.Add(new Role { Id = 20, Name = "Custom Manager" });
+        db.MonasteryMembers.Add(new MonasteryMember { UserId = 2, MonasterySpaceId = 10, RoleId = 20 });
+        await db.SaveChangesAsync();
+        var service = new MonasteryService(db);
+        var request = new InviteMemberRequestDto { UserId = 3, RoleId = 5 };
+        Assert.False((await service.InviteMember(2, 10, request)).IsSuccess);
+        var permission = db.Permissions.Single(p => p.Name == "Monastery.ManageMembers");
+        var mapping = new RolePermission { RoleId = 20, PermissionId = permission.Id };
+        db.RolePermissions.Add(mapping);
+        await db.SaveChangesAsync();
+        Assert.True((await service.InviteMember(2, 10, request)).IsSuccess);
+        Assert.Equal("Viewer", (await service.RespondToInvitation(3, db.Invitations.Single().Id,
+            new() { Status = InvitationStatus.Accept })).Data!.RoleName);
+        Assert.True((await service.UpdateMemberRole(2, 10, 3, new() { RoleId = 4 })).IsSuccess);
+        Assert.Equal("Editor", (await service.GetMembers(2, 10)).ListData!.Single(m => m.UserId == 3).RoleName);
+        mapping.IsDeleted = true;
+        await db.SaveChangesAsync();
+        Assert.False((await service.RemoveMember(2, 10, 3)).IsSuccess);
+        Assert.False((await service.InviteMember(2, 99, request)).IsSuccess);
+        Assert.True((await service.RemoveMember(1, 10, 3)).IsSuccess);
+    }
+
+    [Fact]
     public async Task CreateMonastery_CreatesOwnerMembership()
     {
         await using var dbContext = CreateDbContext();
@@ -25,7 +55,8 @@ public class MonasteryServiceTests
 
         Assert.True(response.IsSuccess);
         Assert.NotNull(response.Data);
-        Assert.Equal(MonasteryRole.Owner, response.Data!.CurrentUserRole);
+        Assert.Equal(3, response.Data!.CurrentUserRoleId);
+        Assert.Equal("User", response.Data.CurrentUserRoleName);
         Assert.True(dbContext.MonasteryMembers.Single().IsOwner);
     }
 
@@ -42,12 +73,12 @@ public class MonasteryServiceTests
         var response = await service.InviteMember(1, 10, new InviteMemberRequestDto
         {
             UserId = 2,
-            Role = MonasteryRole.Editor
+            RoleId = 4
         });
 
         Assert.True(response.IsSuccess);
         Assert.Equal(InvitationStatus.Pending, response.Data!.Status);
-        Assert.Equal(MonasteryRole.Editor, response.Data.Role);
+        Assert.Equal(4, response.Data.RoleId);
         Assert.Single(dbContext.Notifications);
     }
 
@@ -64,7 +95,7 @@ public class MonasteryServiceTests
             MonasterySpaceId = 10,
             InvitedUserId = 2,
             InvitedById = 1,
-            Role = MonasteryRole.Editor,
+            RoleId = 4,
             Status = InvitationStatus.Pending,
             CreatedAt = DateTime.UtcNow
         });
@@ -78,7 +109,7 @@ public class MonasteryServiceTests
 
         Assert.True(response.IsSuccess);
         Assert.Equal(InvitationStatus.Accept, response.Data!.Status);
-        Assert.Contains(dbContext.MonasteryMembers, x => x.UserId == 2 && x.Role == MonasteryRole.Editor);
+        Assert.Contains(dbContext.MonasteryMembers, x => x.UserId == 2 && x.RoleId == 4);
     }
 
     [Fact]
@@ -90,14 +121,14 @@ public class MonasteryServiceTests
         SeedUser(dbContext, 3, "Editor", "093");
         SeedMonastery(dbContext, 10, 1);
         dbContext.MonasteryMembers.AddRange(
-            new MonasteryMember { UserId = 2, MonasterySpaceId = 10, Role = MonasteryRole.Viewer, IsOwner = false },
-            new MonasteryMember { UserId = 3, MonasterySpaceId = 10, Role = MonasteryRole.Editor, IsOwner = false });
+            new MonasteryMember { UserId = 2, MonasterySpaceId = 10, RoleId = 5, IsOwner = false },
+            new MonasteryMember { UserId = 3, MonasterySpaceId = 10, RoleId = 4, IsOwner = false });
         await dbContext.SaveChangesAsync();
         var service = new MonasteryService(dbContext);
 
         var response = await service.UpdateMemberRole(2, 10, 3, new UpdateMemberRoleRequestDto
         {
-            Role = MonasteryRole.Admin
+            RoleId = 1
         });
 
         Assert.False(response.IsSuccess);
@@ -110,7 +141,9 @@ public class MonasteryServiceTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
 
-        return new AppDbContext(options);
+        var context = new AppDbContext(options);
+        RbacTestData.Seed(context);
+        return context;
     }
 
     private static void SeedUser(AppDbContext dbContext, int id, string name, string phone)
@@ -121,7 +154,7 @@ public class MonasteryServiceTests
             Name = name,
             PhoneNumber = phone,
             Password = "pw",
-            UserType = UserType.User,
+            RoleId = 3,
             IsDeleted = false
         });
     }
@@ -138,7 +171,7 @@ public class MonasteryServiceTests
         {
             UserId = ownerUserId,
             MonasterySpaceId = monasteryId,
-            Role = MonasteryRole.Owner,
+            RoleId = 2,
             IsOwner = true
         });
     }

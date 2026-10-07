@@ -12,6 +12,39 @@ namespace HsumChaint.Tests;
 public class DonationServiceTests
 {
     [Fact]
+    public async Task CustomRole_ReviewAndSchedulePermissions_AreIndependentAndScoped()
+    {
+        await using var db = CreateDbContext();
+        SeedUser(db, 1, "Owner", "091");
+        SeedUser(db, 2, "Custom Reviewer", "092");
+        SeedUser(db, 3, "Donor", "093");
+        SeedMonastery(db, 10, 1);
+        SeedDonation(db, 100, 10, 3, DonationStatus.PendingReview);
+        db.Roles.Add(new Role { Id = 20, Name = "Custom Reviewer" });
+        db.MonasteryMembers.Add(new MonasteryMember { UserId = 2, MonasterySpaceId = 10, RoleId = 20 });
+        db.RolePermissions.Add(new RolePermission { RoleId = 20, PermissionId = db.Permissions.Single(p => p.Name == "Donation.Review").Id });
+        await db.SaveChangesAsync();
+        var service = new DonationService(db, Mock.Of<IFirebaseNotificationProvider>());
+        Assert.True((await service.ReviewDonation(2, 100, new() { Status = DonationStatus.Accepted })).IsSuccess);
+        var schedule = new ScheduleDonationRequestDto { PickupTime = DateTime.UtcNow.AddDays(1) };
+        Assert.False((await service.ScheduleDonation(2, 100, schedule)).IsSuccess);
+        db.RolePermissions.Add(new RolePermission { RoleId = 20, PermissionId = db.Permissions.Single(p => p.Name == "Donation.Schedule").Id });
+        await db.SaveChangesAsync();
+        Assert.True((await service.ScheduleDonation(2, 100, schedule)).IsSuccess);
+        SeedDonation(db, 101, 99, 3, DonationStatus.PendingReview);
+        await db.SaveChangesAsync();
+        Assert.False((await service.ReviewDonation(2, 101, new() { Status = DonationStatus.Accepted })).IsSuccess);
+        await service.RequestDonation(3, new() { MonasterySpaceId = 10, DonationType = DonationType.Food, Quantity = 1 });
+        Assert.Contains(db.Notifications, n => n.UserId == 2 && n.Message == "A new donation request is waiting for review.");
+        db.Permissions.Single(p => p.Name == "Donation.Review").IsDeleted = true;
+        await db.SaveChangesAsync();
+        SeedDonation(db, 200, 10, 3, DonationStatus.PendingReview);
+        await db.SaveChangesAsync();
+        Assert.False((await service.ReviewDonation(2, 200, new() { Status = DonationStatus.Accepted })).IsSuccess);
+        Assert.True((await service.ReviewDonation(1, 200, new() { Status = DonationStatus.Accepted })).IsSuccess);
+    }
+
+    [Fact]
     public async Task RequestDonation_CreatesPendingDonation_AndNotifiesAdmins()
     {
         await using var dbContext = CreateDbContext();
@@ -73,7 +106,7 @@ public class DonationServiceTests
         {
             UserId = 2,
             MonasterySpaceId = 10,
-            Role = MonasteryRole.Viewer,
+            RoleId = 5,
             IsOwner = false
         });
         await dbContext.SaveChangesAsync();
@@ -132,7 +165,7 @@ public class DonationServiceTests
         {
             UserId = 2,
             MonasterySpaceId = 10,
-            Role = MonasteryRole.Editor,
+            RoleId = 4,
             IsOwner = false
         });
         SeedDonation(dbContext, 100, 10, 3, DonationStatus.Accepted);
@@ -190,7 +223,9 @@ public class DonationServiceTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
 
-        return new AppDbContext(options);
+        var context = new AppDbContext(options);
+        RbacTestData.Seed(context);
+        return context;
     }
 
     private static void SeedUser(AppDbContext dbContext, int id, string name, string phone, string? fcmToken = null)
@@ -201,7 +236,7 @@ public class DonationServiceTests
             Name = name,
             PhoneNumber = phone,
             Password = "pw",
-            UserType = UserType.User,
+            RoleId = 3,
             FcmToken = fcmToken,
             IsDeleted = false
         });
@@ -219,7 +254,7 @@ public class DonationServiceTests
         {
             UserId = ownerUserId,
             MonasterySpaceId = monasteryId,
-            Role = MonasteryRole.Owner,
+            RoleId = 2,
             IsOwner = true
         });
     }

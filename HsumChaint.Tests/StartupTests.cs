@@ -18,6 +18,7 @@ namespace HsumChaint.Tests;
 public class StartupTests
 {
     private readonly WebApplicationFactory<Program> _factory;
+    private readonly string _databaseName = Guid.NewGuid().ToString();
 
     public StartupTests()
     {
@@ -31,7 +32,7 @@ public class StartupTests
                     services.RemoveAll<DbContextOptions<AppDbContext>>();
                     services.RemoveAll<IDbContextOptionsConfiguration<AppDbContext>>();
                     services.AddDbContext<AppDbContext>(options =>
-                        options.UseInMemoryDatabase("HsumChaintApiTests"));
+                        options.UseInMemoryDatabase(_databaseName));
                 });
             });
     }
@@ -47,6 +48,7 @@ public class StartupTests
         Assert.NotNull(serviceProvider.GetRequiredService<INotificationService>());
         Assert.NotNull(serviceProvider.GetRequiredService<IMonasteryService>());
         Assert.NotNull(serviceProvider.GetRequiredService<IDonationService>());
+        Assert.NotNull(serviceProvider.GetRequiredService<HsumChaint.Domain.Features.RolePermission.ServiceInterfaces.IRolePermissionService>());
     }
 
     [Fact]
@@ -83,5 +85,57 @@ public class StartupTests
 
         Assert.Equal(System.Net.HttpStatusCode.Unauthorized, donationsResponse.StatusCode);
         Assert.Equal(System.Net.HttpStatusCode.Unauthorized, monasteriesResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Rbac_LoginWithSeededAdminHash_GrantsProtectedApiAccess()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        RbacTestData.Seed(db);
+        db.Users.Add(new User
+        {
+            Id = 2, Name = "Ko Admin", PhoneNumber = "09100000002", RoleId = 1, IsDeleted = false,
+            Password = "AQAAAAIAAYagAAAAEDIpV3urEmFsT/sadx0glQu6ZQVPR2rBoaOrdj3OBmc0hdVzfIYOYHh972IzaIUUlg=="
+        });
+        await db.SaveChangesAsync();
+        using var client = _factory.CreateClient(new() { BaseAddress = new Uri("https://localhost") });
+        var login = await System.Net.Http.Json.HttpClientJsonExtensions.PostAsJsonAsync(client, "/api/v1/auth/login",
+            new { PhoneNumber = "09100000002", Password = "Passw0rd!" });
+        Assert.Equal(System.Net.HttpStatusCode.OK, login.StatusCode);
+        var response = await System.Net.Http.Json.HttpContentJsonExtensions.ReadFromJsonAsync<HsumChaint.Domain.ApplicationCommonResponseModel<HsumChaint.Domain.Features.Auth.DTOs.LoginResponseDto>>(login.Content);
+        Assert.Equal(15, response!.Data!.Permissions.Count);
+        client.DefaultRequestHeaders.Authorization = new("Bearer", response.Data.AccessToken);
+        Assert.Equal(System.Net.HttpStatusCode.OK, (await client.GetAsync("/api/v1/roles")).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.OK, (await client.GetAsync("/api/v1/permissions")).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.OK, (await client.GetAsync("/api/User")).StatusCode);
+        var create = await System.Net.Http.Json.HttpClientJsonExtensions.PostAsJsonAsync(client, "/api/v1/roles",
+            new { Name = "Custom API Reviewer", PermissionIds = new[] { 13 } });
+        Assert.Equal(System.Net.HttpStatusCode.OK, create.StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, (await client.DeleteAsync("/api/v1/roles/1")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Rbac_AdminWithoutPermissionMapping_IsForbidden_AndRegistrationRequiresAuthorization()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        RbacTestData.Seed(db);
+        db.RolePermissions.RemoveRange(db.RolePermissions.Where(rp => rp.RoleId == 1));
+        var admin = new User { Name = "Admin", PhoneNumber = "091", RoleId = 1, IsDeleted = false };
+        admin.Password = new Microsoft.AspNetCore.Identity.PasswordHasher<User>().HashPassword(admin, "Passw0rd!");
+        db.Users.Add(admin);
+        await db.SaveChangesAsync();
+        using var client = _factory.CreateClient(new() { BaseAddress = new Uri("https://localhost") });
+        var anonymousRegister = await System.Net.Http.Json.HttpClientJsonExtensions.PostAsJsonAsync(client, "/api/v1/auth/register",
+            new { Name = "Self Admin", PhoneNumber = "092", Password = "Passw0rd!", RoleId = 1 });
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, anonymousRegister.StatusCode);
+        var login = await System.Net.Http.Json.HttpClientJsonExtensions.PostAsJsonAsync(client, "/api/v1/auth/login",
+            new { PhoneNumber = "091", Password = "Passw0rd!" });
+        var response = await System.Net.Http.Json.HttpContentJsonExtensions.ReadFromJsonAsync<HsumChaint.Domain.ApplicationCommonResponseModel<HsumChaint.Domain.Features.Auth.DTOs.LoginResponseDto>>(login.Content);
+        Assert.Empty(response!.Data!.Permissions);
+        client.DefaultRequestHeaders.Authorization = new("Bearer", response.Data.AccessToken);
+        Assert.Equal(System.Net.HttpStatusCode.Forbidden, (await client.GetAsync("/api/v1/roles")).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.Forbidden, (await client.GetAsync("/api/v1/permissions")).StatusCode);
     }
 }

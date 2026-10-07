@@ -22,7 +22,7 @@ public class NotificationServiceTests
             Name = "Donor",
             PhoneNumber = "091111111",
             Password = "pw",
-            UserType = UserType.User,
+            RoleId = 3,
             IsDeleted = false
         });
         await dbContext.SaveChangesAsync();
@@ -100,6 +100,8 @@ public class NotificationServiceTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
 
-        return new AppDbContext(options);
+        var context = new AppDbContext(options);
+        RbacTestData.Seed(context);
+        return context;
     }
 }

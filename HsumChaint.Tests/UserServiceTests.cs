@@ -15,8 +15,8 @@ public class UserServiceTests
     {
         await using var dbContext = CreateDbContext();
         dbContext.Users.AddRange(
-            new InfrastructureUser { Id = 1, Name = "Alice", PhoneNumber = "1111111111", Password = "pw", UserType = UserType.User, IsDeleted = false },
-            new InfrastructureUser { Id = 2, Name = "Bob", PhoneNumber = "2222222222", Password = "pw", UserType = UserType.User, IsDeleted = false });
+            new InfrastructureUser { Id = 1, Name = "Alice", PhoneNumber = "1111111111", Password = "pw", RoleId = 3, IsDeleted = false },
+            new InfrastructureUser { Id = 2, Name = "Bob", PhoneNumber = "2222222222", Password = "pw", RoleId = 3, IsDeleted = false });
         await dbContext.SaveChangesAsync();
 
         var userService = new UserService(dbContext);
@@ -39,7 +39,7 @@ public class UserServiceTests
             Name = "Original",
             PhoneNumber = "1111111111",
             Password = "pw",
-            UserType = UserType.User,
+            RoleId = 3,
             IsDeleted = false
         });
         await dbContext.SaveChangesAsync();
@@ -51,7 +51,7 @@ public class UserServiceTests
             Id = 1,
             Name = "Updated",
             PhoneNumber = "3333333333",
-            UserType = UserType.User
+            RoleId = 3
         });
 
         Assert.True(response.IsSuccess);
@@ -65,6 +65,8 @@ public class UserServiceTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
 
-        return new AppDbContext(options);
+        var context = new AppDbContext(options);
+        RbacTestData.Seed(context);
+        return context;
     }
 }
