@@ -16,7 +16,15 @@ public partial class Notification
     public string? Message { get; set; }
 
     public bool? IsRead { get; set; }
-    public bool? IsDelete { get; set; }
+
+    public bool? IsDeleted { get; set; }
+
+    [NotMapped]
+    public bool? IsDelete
+    {
+        get => IsDeleted;
+        set => IsDeleted = value;
+    }
 
     [Column("CreatedAt")]
     public DateTime? CreatedAt { get; set; }

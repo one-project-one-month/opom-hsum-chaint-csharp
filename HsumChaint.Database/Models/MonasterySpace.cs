@@ -14,4 +14,6 @@ public partial class MonasterySpace
     public string? Address { get; set; }
 
     public int? CreatedById { get; set; }
+
+    public bool IsDeleted { get; set; }
 }
