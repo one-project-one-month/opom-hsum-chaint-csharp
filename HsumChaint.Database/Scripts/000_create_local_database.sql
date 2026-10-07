@@ -8,12 +8,47 @@ CREATE DATABASE IF NOT EXISTS hsumchaint_db
 
 USE hsumchaint_db;
 
-CREATE TABLE IF NOT EXISTS `User` (
+-- 1. Access Control: Role & Permission Tables
+CREATE TABLE IF NOT EXISTS Role (
     id INT NOT NULL AUTO_INCREMENT,
+    name VARCHAR(50) NOT NULL,
+    is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY UX_Role_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS Permission (
+    id INT NOT NULL AUTO_INCREMENT,
+    name VARCHAR(50) NOT NULL,
+    is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY UX_Permission_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS Role_Permission (
+    id INT NOT NULL AUTO_INCREMENT,
+    role_id INT NOT NULL,
+    permission_id INT NOT NULL,
+    is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY UX_Role_Permission_role_permission (role_id, permission_id),
+    KEY IX_Role_Permission_role_id (role_id),
+    KEY IX_Role_Permission_permission_id (permission_id),
+    CONSTRAINT FK_Role_Permission_Role_role_id
+        FOREIGN KEY (role_id) REFERENCES Role (id)
+        ON DELETE CASCADE,
+    CONSTRAINT FK_Role_Permission_Permission_permission_id
+        FOREIGN KEY (permission_id) REFERENCES Permission (id)
+        ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 2. Core User Table
+CREATE TABLE IF NOT EXISTS User (
+    id INT NOT NULL AUTO_INCREMENT,
+    role_id INT NOT NULL,
     name VARCHAR(255) NOT NULL,
     phone VARCHAR(50) NOT NULL,
     password VARCHAR(255) NOT NULL,
-    user_type INT NOT NULL DEFAULT 0,
     email VARCHAR(255) NULL,
     contact_phone VARCHAR(50) NULL,
     fcm_token VARCHAR(255) NULL,
@@ -21,9 +56,14 @@ CREATE TABLE IF NOT EXISTS `User` (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     is_deleted TINYINT(1) NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
-    UNIQUE KEY UX_User_phone_active (phone, is_deleted)
+    UNIQUE KEY UX_User_phone_active (phone, is_deleted),
+    KEY IX_User_role_id (role_id),
+    CONSTRAINT FK_User_Role_role_id
+        FOREIGN KEY (role_id) REFERENCES Role (id)
+        ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 3. Profiles & Spaces
 CREATE TABLE IF NOT EXISTS MonkProfile (
     id INT NOT NULL AUTO_INCREMENT,
     user_id INT NOT NULL,
@@ -32,7 +72,7 @@ CREATE TABLE IF NOT EXISTS MonkProfile (
     PRIMARY KEY (id),
     KEY IX_MonkProfile_user_id (user_id),
     CONSTRAINT FK_MonkProfile_User_user_id
-        FOREIGN KEY (user_id) REFERENCES `User` (id)
+        FOREIGN KEY (user_id) REFERENCES User (id)
         ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -42,28 +82,32 @@ CREATE TABLE IF NOT EXISTS Monastery_Space (
     description VARCHAR(1000) NULL,
     address VARCHAR(500) NULL,
     created_by_id INT NULL,
+    is_deleted TINYINT(1) NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     KEY IX_Monastery_Space_created_by_id (created_by_id),
     CONSTRAINT FK_Monastery_Space_User_created_by_id
-        FOREIGN KEY (created_by_id) REFERENCES `User` (id)
+        FOREIGN KEY (created_by_id) REFERENCES User (id)
         ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 CREATE TABLE IF NOT EXISTS Monastery_Member (
     id INT NOT NULL AUTO_INCREMENT,
     user_id INT NULL,
     monastery_space_id INT NULL,
-    role INT NOT NULL DEFAULT 3,
-    isOwner TINYINT(1) NULL DEFAULT 0,
+    role_id INT NOT NULL,
+    is_owner TINYINT(1) NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY UX_Monastery_Member_user_space (user_id, monastery_space_id),
     KEY IX_Monastery_Member_monastery_space_id (monastery_space_id),
+    KEY IX_Monastery_Member_role_id (role_id),
     CONSTRAINT FK_Monastery_Member_User_user_id
-        FOREIGN KEY (user_id) REFERENCES `User` (id)
+        FOREIGN KEY (user_id) REFERENCES User (id)
         ON DELETE CASCADE,
     CONSTRAINT FK_Monastery_Member_Monastery_Space_monastery_space_id
         FOREIGN KEY (monastery_space_id) REFERENCES Monastery_Space (id)
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT FK_Monastery_Member_Role_role_id
+        FOREIGN KEY (role_id) REFERENCES Role (id)
+        ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS Invitation (
@@ -82,13 +126,14 @@ CREATE TABLE IF NOT EXISTS Invitation (
         FOREIGN KEY (monastery_space_id) REFERENCES Monastery_Space (id)
         ON DELETE CASCADE,
     CONSTRAINT FK_Invitation_User_invited_user_id
-        FOREIGN KEY (invited_user_id) REFERENCES `User` (id)
+        FOREIGN KEY (invited_user_id) REFERENCES User (id)
         ON DELETE CASCADE,
     CONSTRAINT FK_Invitation_User_invited_by_id
-        FOREIGN KEY (invited_by_id) REFERENCES `User` (id)
+        FOREIGN KEY (invited_by_id) REFERENCES User (id)
         ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 4. Operations & Donor Management
 CREATE TABLE IF NOT EXISTS Donor_List (
     id INT NOT NULL AUTO_INCREMENT,
     monastery_space_id INT NULL,
@@ -117,28 +162,28 @@ CREATE TABLE IF NOT EXISTS Donor_List (
         FOREIGN KEY (monastery_space_id) REFERENCES Monastery_Space (id)
         ON DELETE CASCADE,
     CONSTRAINT FK_Donor_List_User_donor_id
-        FOREIGN KEY (donor_id) REFERENCES `User` (id)
+        FOREIGN KEY (donor_id) REFERENCES User (id)
         ON DELETE SET NULL,
     CONSTRAINT FK_Donor_List_User_reviewer_id
-        FOREIGN KEY (reviewer_id) REFERENCES `User` (id)
+        FOREIGN KEY (reviewer_id) REFERENCES User (id)
         ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 5. Notifications & User Preferences
 CREATE TABLE IF NOT EXISTS Notification (
     id INT NOT NULL AUTO_INCREMENT,
     user_id INT NULL,
     type INT NOT NULL DEFAULT 2,
     message VARCHAR(1000) NULL,
-    isRead TINYINT(1) NULL DEFAULT 0,
-    isDelete TINYINT(1) NULL DEFAULT 0,
+    is_read TINYINT(1) NULL DEFAULT 0,
+    is_deleted TINYINT(1) NULL DEFAULT 0,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY IX_Notification_user_id_created_at (user_id, created_at),
     CONSTRAINT FK_Notification_User_user_id
-        FOREIGN KEY (user_id) REFERENCES `User` (id)
+        FOREIGN KEY (user_id) REFERENCES User (id)
         ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 CREATE TABLE IF NOT EXISTS Refresh_Token (
     id INT NOT NULL AUTO_INCREMENT,
     user_id INT NULL,
@@ -149,7 +194,7 @@ CREATE TABLE IF NOT EXISTS Refresh_Token (
     PRIMARY KEY (id),
     UNIQUE KEY UX_Refresh_Token_user_id (user_id),
     CONSTRAINT FK_Refresh_Token_User_user_id
-        FOREIGN KEY (user_id) REFERENCES `User` (id)
+        FOREIGN KEY (user_id) REFERENCES User (id)
         ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -163,6 +208,6 @@ CREATE TABLE IF NOT EXISTS User_Setting (
     PRIMARY KEY (id),
     UNIQUE KEY UX_User_Setting_user_id (user_id),
     CONSTRAINT FK_User_Setting_User_user_id
-        FOREIGN KEY (user_id) REFERENCES `User` (id)
+        FOREIGN KEY (user_id) REFERENCES User (id)
         ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

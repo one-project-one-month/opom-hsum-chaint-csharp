@@ -7,8 +7,9 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY ["HsumChaint.API/HsumChaint.API.csproj", "HsumChaint.API/"]
-COPY ["HsumChaint.Application/HsumChaint.Application.csproj", "HsumChaint.Application/"]
-COPY ["HsumChaint.Infrastructure/HsumChaint.Infrastructure.csproj", "HsumChaint.Infrastructure/"]
+COPY ["HsumChaint.Domain/HsumChaint.Domain.csproj", "HsumChaint.Domain/"]
+COPY ["HsumChaint.Database/HsumChaint.Database.csproj", "HsumChaint.Database/"]
+COPY ["HsumChaint.Shared/HsumChaint.Shared.csproj", "HsumChaint.Shared/"]
 RUN dotnet restore "HsumChaint.API/HsumChaint.API.csproj"
 COPY . .
 WORKDIR "/src/HsumChaint.API"

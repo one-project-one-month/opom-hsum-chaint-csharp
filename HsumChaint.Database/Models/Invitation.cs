@@ -14,7 +14,7 @@ public partial class Invitation
 
     public int? InvitedById { get; set; }
 
-    public MonasteryRole Role { get; set; }
+    public int Role { get; set; } = 3;
 
     public InvitationStatus Status { get; set; }
 

@@ -21,6 +21,7 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-sasa1234}
     volumes:
       - db_data:/var/lib/mysql
+      - ./HsumChaint.Database/Scripts/000_create_local_database.sql:/docker-entrypoint-initdb.d/000_create_local_database.sql:ro
 
 volumes:
   db_data:
