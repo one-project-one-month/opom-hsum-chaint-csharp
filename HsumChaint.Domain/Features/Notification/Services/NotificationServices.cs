@@ -1,8 +1,8 @@
-using AutoMapper;
 using HsumChaint.Database.Models;
 using HsumChaint.Domain.Features.Notification.DTOs;
 using HsumChaint.Domain.Features.Notification.Providers;
 using HsumChaint.Domain.Features.Notification.ServiceInterfaces;
+using HsumChaint.Shared.CommonEnum;
 using Microsoft.EntityFrameworkCore;
 using NotificationEntity = HsumChaint.Database.Models.Notification;
 
@@ -12,13 +12,11 @@ namespace HsumChaint.Domain.Features.Notification.Services
     {
         private readonly AppDbContext _dbContext;
         private readonly IFirebaseNotificationProvider _notificationProvider;
-        private readonly IMapper _mapper;
 
-        public NotificationServices(AppDbContext dbContext, IFirebaseNotificationProvider notificationProvider, IMapper mapper)
+        public NotificationServices(AppDbContext dbContext, IFirebaseNotificationProvider notificationProvider)
         {
             _dbContext = dbContext;
             _notificationProvider = notificationProvider;
-            _mapper = mapper;
         }
 
         public async Task<ApplicationCommonResponseModel<DeleteNotificationResponseDto>> DeleteNotification(DeleteNotificationRequestDto requestModel)
@@ -50,7 +48,7 @@ namespace HsumChaint.Domain.Features.Notification.Services
                 {
                     response.IsSuccess = true;
                     response.Message = "Notification is already deleted.";
-                    response.Data = _mapper.Map<DeleteNotificationResponseDto>(notification);
+                    response.Data = MapDeleteResponse(notification);
                     return response;
                 }
 
@@ -61,7 +59,7 @@ namespace HsumChaint.Domain.Features.Notification.Services
 
                 response.IsSuccess = true;
                 response.Message = "Notification deleted successfully.";
-                response.Data = _mapper.Map<DeleteNotificationResponseDto>(notification);
+                response.Data = MapDeleteResponse(notification);
                 #endregion
             }
             catch (Exception ex)
@@ -93,7 +91,7 @@ namespace HsumChaint.Domain.Features.Notification.Services
                 #region Get FCM token and Store Notification into DB
                 var deviceFcmToken = user.FcmToken;
 
-                var notification = _mapper.Map<NotificationEntity>(requestModel);
+                var notification = MapToEntity(requestModel);
 
                 await _dbContext.Notifications.AddAsync(notification);
                 await _dbContext.SaveChangesAsync();
@@ -101,7 +99,7 @@ namespace HsumChaint.Domain.Features.Notification.Services
                 response.IsSuccess = true;
                 response.Message = "Notification added successfully.";
 
-                response.Data = _mapper.Map<CreateNotificationResponseDto>(notification);
+                response.Data = MapCreateResponse(notification);
                 #endregion
 
                 #region Send Notification
@@ -157,7 +155,7 @@ namespace HsumChaint.Domain.Features.Notification.Services
                 {
                     response.IsSuccess = true;
                     response.Message = "Notification is already read.";
-                    response.Data = _mapper.Map<ReadNotificationResponseDto>(notification);
+                    response.Data = MapReadResponse(notification);
                     return response;
                 }
 
@@ -168,7 +166,7 @@ namespace HsumChaint.Domain.Features.Notification.Services
 
                 response.IsSuccess = true;
                 response.Message = "Notification marked as read successfully.";
-                response.Data = _mapper.Map<ReadNotificationResponseDto>(notification);
+                response.Data = MapReadResponse(notification);
                 #endregion
             }
             catch (Exception ex)
@@ -178,6 +176,59 @@ namespace HsumChaint.Domain.Features.Notification.Services
             }
 
             return response;
+        }
+
+        private static NotificationEntity MapToEntity(CreateNotificationRequestDto request)
+        {
+            return new NotificationEntity
+            {
+                UserId = request.UserId,
+                Type = ResolveNotificationType(request.NotificationType),
+                Message = request.Message,
+                IsRead = false,
+                IsDelete = false,
+                CreatedAt = DateTime.UtcNow
+            };
+        }
+
+        private static CreateNotificationResponseDto MapCreateResponse(NotificationEntity notification)
+        {
+            return new CreateNotificationResponseDto
+            {
+                NotificationId = notification.Id,
+                UserId = notification.UserId ?? 0,
+                NotificationType = notification.Type.ToString(),
+                Message = notification.Message
+            };
+        }
+
+        private static ReadNotificationResponseDto MapReadResponse(NotificationEntity notification)
+        {
+            return new ReadNotificationResponseDto
+            {
+                NotificationId = notification.Id,
+                IsRead = notification.IsRead ?? false
+            };
+        }
+
+        private static DeleteNotificationResponseDto MapDeleteResponse(NotificationEntity notification)
+        {
+            return new DeleteNotificationResponseDto
+            {
+                NotificationId = notification.Id,
+                IsDeleted = notification.IsDelete ?? false
+            };
+        }
+
+        private static NotificationType ResolveNotificationType(string? value)
+        {
+            if (!string.IsNullOrWhiteSpace(value) &&
+                Enum.TryParse<NotificationType>(value.Replace("-", "_"), ignoreCase: true, out var parsedType))
+            {
+                return parsedType;
+            }
+
+            return NotificationType.System;
         }
 
         private string GetTitleForType(string? type = null)

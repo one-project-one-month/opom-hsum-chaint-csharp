@@ -55,7 +55,7 @@ flowchart LR
   Service --> Db[(Database<br/>EF Core AppDbContext)]
   Db --> Models["Database-first table models"]
   Service --> Provider["Domain Notification Provider"]
-  Service --> Mapper["AutoMapper Profiles"]
+  Service --> Mapper["Manual Mappings"]
   Service --> Response["ApplicationCommonResponseModel / DTOs"]
   Response --> Controllers --> Result["HTTP Response"]
 ```

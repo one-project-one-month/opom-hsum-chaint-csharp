@@ -1,4 +1,3 @@
-using AutoMapper;
 using HsumChaint.Database.Models;
 using HsumChaint.Domain.Features.User.DTOs;
 using HsumChaint.Domain.Features.User.ServiceInterfaces;
@@ -11,12 +10,10 @@ namespace HsumChaint.Domain.Features.User.Services
     public class UserService : IUserService
     {
         private readonly AppDbContext _context;
-        private readonly IMapper _mapper;
 
-        public UserService(AppDbContext context, IMapper mapper)
+        public UserService(AppDbContext context)
         {
             _context = context;
-            _mapper = mapper;
         }
 
         #region GetUserList
@@ -30,7 +27,8 @@ namespace HsumChaint.Domain.Features.User.Services
                     .Where(user => user.IsDeleted == false)
                     .ToListAsync();
 
-                response.ListData = _mapper.Map<List<UserDto>>(userList);
+                response.ListData = userList.Select(MapToDto).ToList();
+
                 response.IsSuccess = true;
                 response.Message = userList.Count > 0 ? "Successfully Retrieved User Lists" : "User list not found";
             }
@@ -52,10 +50,10 @@ namespace HsumChaint.Domain.Features.User.Services
                 UserEntity? user = await _context.Users
                     .AsNoTracking()
                     .FirstOrDefaultAsync(user => user.IsDeleted == false && user.Id == id);
-
-                response.Data = _mapper.Map<UserDto>(user);
+                
+                response.Data = user is not null ? MapToDto(user) : null;
                 response.IsSuccess = true;
-                response.Message = user is not null ? "Successfully Retrieved User Lists" : "User not found";
+                response.Message = user is not null ? "Successfully Retrieved User" : "User not found";
             }
             catch (Exception ex)
             {
@@ -72,7 +70,7 @@ namespace HsumChaint.Domain.Features.User.Services
             var response = new ApplicationCommonResponseModel<UserDto>();
             try
             {
-                var userEntity = _mapper.Map<UserEntity>(user);
+                var userEntity = MapToEntity(user);
                 var existingUser = await _context.Users
                     .FirstOrDefaultAsync(dbUser => dbUser.IsDeleted == false && dbUser.Id == userEntity.Id);
 
@@ -179,7 +177,7 @@ namespace HsumChaint.Domain.Features.User.Services
                     .Where(invitation => invitation.InvitedUserId == id)
                     .ToListAsync();
 
-                response.ListData = _mapper.Map<List<InvitationDto>>(invitationList);
+                response.ListData = invitationList.Select(MapInvitation).ToList();
                 response.IsSuccess = true;
                 response.Message = invitationList.Count > 0 ? "Successfully Retrieved Invitation Lists" : "Invitation list not found";
             }
@@ -201,7 +199,7 @@ namespace HsumChaint.Domain.Features.User.Services
                     .Where(invitation => invitation.InvitedById == id)
                     .ToListAsync();
 
-                response.ListData = _mapper.Map<List<InvitationDto>>(invitedByOtherList);
+                response.ListData = invitedByOtherList.Select(MapInvitation).ToList();
                 response.IsSuccess = true;
                 response.Message = invitedByOtherList.Count > 0 ? "Successfully Retrieved Invited Lists" : "Invited list not found";
             }
@@ -225,7 +223,7 @@ namespace HsumChaint.Domain.Features.User.Services
                     .Where(notification => notification.UserId == id && notification.IsDelete == false)
                     .ToListAsync();
 
-                response.ListData = _mapper.Map<List<NotificationDto>>(notificationList);
+                response.ListData = notificationList.Select(MapNotification).ToList();
                 response.IsSuccess = true;
                 response.Message = notificationList.Count > 0
                     ? "Successfully Retrieved User's Notification Lists"
@@ -283,6 +281,59 @@ namespace HsumChaint.Domain.Features.User.Services
             return response;
         }
         #endregion
+
+        private static UserEntity MapToEntity(UserDto dto)
+        {
+            return new UserEntity
+            {
+                Id = dto.Id,
+                Name = dto.Name ?? string.Empty,
+                PhoneNumber = dto.PhoneNumber ?? string.Empty,
+                UserType = dto.UserType,
+                Email = dto.Email,
+                ContactPhoneNumber = dto.ContactPhoneNumber
+            };
+        }
+
+        private static UserDto MapToDto(UserEntity user)
+        {
+            return new UserDto
+            {
+                Id = user.Id,
+                Name = user.Name,
+                PhoneNumber = user.PhoneNumber,
+                UserType = user.UserType,
+                Email = user.Email,
+                ContactPhoneNumber = user.ContactPhoneNumber
+            };
+        }
+
+        private static InvitationDto MapInvitation(Invitation invitation)
+        {
+            return new InvitationDto
+            {
+                Id = invitation.Id,
+                MonasterySpaceId = invitation.MonasterySpaceId,
+                InvitedUserId = invitation.InvitedUserId,
+                InvitedById = invitation.InvitedById,
+                Role = invitation.Role,
+                Status = invitation.Status,
+                CreatedAt = invitation.CreatedAt
+            };
+        }
+
+        private static NotificationDto MapNotification(NotificationEntity notification)
+        {
+            return new NotificationDto
+            {
+                Id = notification.Id,
+                UserId = notification.UserId,
+                Type = notification.Type,
+                Message = notification.Message,
+                IsRead = notification.IsRead,
+                CreatedAt = notification.CreatedAt
+            };
+        }
 
         private static bool ValidateForUserUpdate(UserEntity? user, out string errorMessage)
         {

@@ -1,10 +1,8 @@
-using AutoMapper;
 using HsumChaint.Database.Models;
 using HsumChaint.Domain.Features.User.DTOs;
 using HsumChaint.Domain.Features.User.Services;
 using HsumChaint.Shared.CommonEnum;
 using Microsoft.EntityFrameworkCore;
-using Moq;
 using Xunit;
 using InfrastructureUser = HsumChaint.Database.Models.User;
 
@@ -21,7 +19,7 @@ public class UserServiceTests
             new InfrastructureUser { Id = 2, Name = "Bob", PhoneNumber = "2222222222", Password = "pw", UserType = UserType.User, IsDeleted = false });
         await dbContext.SaveChangesAsync();
 
-        var userService = new UserService(dbContext, CreateMapper().Object);
+        var userService = new UserService(dbContext);
 
         var response = await userService.GetAllUsers();
 
@@ -46,7 +44,7 @@ public class UserServiceTests
         });
         await dbContext.SaveChangesAsync();
 
-        var userService = new UserService(dbContext, CreateMapper().Object);
+        var userService = new UserService(dbContext);
 
         var response = await userService.PutUser(new UserDto
         {
@@ -68,44 +66,5 @@ public class UserServiceTests
             .Options;
 
         return new AppDbContext(options);
-    }
-
-    private static Mock<IMapper> CreateMapper()
-    {
-        var mapper = new Mock<IMapper>();
-
-        mapper
-            .Setup(x => x.Map<List<UserDto>>(It.IsAny<List<InfrastructureUser>>()))
-            .Returns((List<InfrastructureUser> users) => users.Select(user => new UserDto
-            {
-                Id = user.Id,
-                Name = user.Name,
-                PhoneNumber = user.PhoneNumber,
-                UserType = user.UserType
-            }).ToList());
-
-        mapper
-            .Setup(x => x.Map<UserDto>(It.IsAny<InfrastructureUser?>()))
-            .Returns((InfrastructureUser? user) => user == null ? null! : new UserDto
-            {
-                Id = user.Id,
-                Name = user.Name,
-                PhoneNumber = user.PhoneNumber,
-                UserType = user.UserType
-            });
-
-        mapper
-            .Setup(x => x.Map<InfrastructureUser>(It.IsAny<UserDto>()))
-            .Returns((UserDto dto) => new InfrastructureUser
-            {
-                Id = dto.Id,
-                Name = dto.Name!,
-                PhoneNumber = dto.PhoneNumber!,
-                UserType = dto.UserType,
-                Email = dto.Email,
-                ContactPhoneNumber = dto.ContactPhoneNumber
-            });
-
-        return mapper;
     }
 }
