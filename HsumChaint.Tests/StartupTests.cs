@@ -73,6 +73,27 @@ public class StartupTests
         var response = await client.GetAsync("/openapi/v1.json");
 
         Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+        using var document = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var bearer = document.RootElement.GetProperty("components").GetProperty("securitySchemes").GetProperty("Bearer");
+        Assert.Equal("http", bearer.GetProperty("type").GetString());
+        Assert.Equal("bearer", bearer.GetProperty("scheme").GetString());
+        Assert.Equal("JWT", bearer.GetProperty("bearerFormat").GetString());
+        Assert.True(document.RootElement.GetProperty("security")[0].TryGetProperty("Bearer", out _));
+    }
+
+    [Fact]
+    public async Task Startup_RootRedirectsToScalar_InDevelopment()
+    {
+        using var client = _factory.CreateClient(new()
+        {
+            AllowAutoRedirect = false,
+            BaseAddress = new Uri("https://localhost")
+        });
+        var response = await client.GetAsync("/");
+
+        Assert.Equal(System.Net.HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/scalar/v1", response.Headers.Location?.OriginalString);
+        Assert.Equal(System.Net.HttpStatusCode.OK, (await client.GetAsync("/scalar/v1")).StatusCode);
     }
 
     [Fact]
