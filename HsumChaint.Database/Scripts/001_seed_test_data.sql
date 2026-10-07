@@ -7,18 +7,63 @@
 
 USE hsumchaint_db;
 
+INSERT INTO `Role` (id, name, is_deleted) VALUES
+    (1, 'Admin', 0), (2, 'Monk', 0), (3, 'User', 0), (4, 'Editor', 0), (5, 'Viewer', 0)
+ON DUPLICATE KEY UPDATE name = VALUES(name), is_deleted = 0;
+
+INSERT INTO `Permission` (id, name, is_deleted) VALUES
+    (1, 'Roles.View', 0),
+    (2, 'Roles.Manage', 0),
+    (3, 'Roles.Assign', 0),
+    (4, 'Users.View', 0),
+    (5, 'Users.Manage', 0),
+    (6, 'Monastery.Create', 0),
+    (7, 'Monastery.View', 0),
+    (8, 'Monastery.Update', 0),
+    (9, 'Monastery.Delete', 0),
+    (10, 'Monastery.ManageMembers', 0),
+    (11, 'Donation.View', 0),
+    (12, 'Donation.Create', 0),
+    (13, 'Donation.Review', 0),
+    (14, 'Donation.Schedule', 0),
+    (15, 'Donation.Cancel', 0)
+ON DUPLICATE KEY UPDATE name = VALUES(name), is_deleted = 0;
+
+-- Admin access is entirely data-driven, including any additional active permissions.
+INSERT INTO Role_Permission (role_id, permission_id, is_deleted)
+SELECT 1, id, 0 FROM `Permission` WHERE is_deleted = 0
+ON DUPLICATE KEY UPDATE is_deleted = 0;
+
+INSERT INTO Role_Permission (role_id, permission_id, is_deleted)
+SELECT 2, id, 0 FROM `Permission` WHERE name IN
+('Monastery.Create', 'Monastery.View', 'Monastery.Update', 'Monastery.ManageMembers',
+ 'Donation.View', 'Donation.Create', 'Donation.Review', 'Donation.Schedule', 'Donation.Cancel') AND is_deleted = 0
+ON DUPLICATE KEY UPDATE is_deleted = 0;
+
+INSERT INTO Role_Permission (role_id, permission_id, is_deleted)
+SELECT 3, id, 0 FROM `Permission` WHERE name IN ('Monastery.View', 'Donation.View', 'Donation.Create', 'Donation.Cancel') AND is_deleted = 0
+ON DUPLICATE KEY UPDATE is_deleted = 0;
+
+INSERT INTO Role_Permission (role_id, permission_id, is_deleted)
+SELECT 4, id, 0 FROM `Permission` WHERE name IN ('Monastery.View', 'Donation.View', 'Donation.Schedule') AND is_deleted = 0
+ON DUPLICATE KEY UPDATE is_deleted = 0;
+
+INSERT INTO Role_Permission (role_id, permission_id, is_deleted)
+SELECT 5, id, 0 FROM `Permission` WHERE name IN ('Monastery.View', 'Donation.View') AND is_deleted = 0
+ON DUPLICATE KEY UPDATE is_deleted = 0;
+
 INSERT INTO `User`
-    (id, name, phone, password, user_type, email, contact_phone, fcm_token, created_at, updated_at, is_deleted)
+    (id, name, phone, password, role_id, email, contact_phone, fcm_token, created_at, updated_at, is_deleted)
 VALUES
-    (1, 'Ashin Nanda', '09100000001', 'AQAAAAIAAYagAAAAENgQAA7XK8LSoUH9X2bHih50M4bRumRT+/zgkXuj2DRzg+ON/cVOYukm/pMQXoVT+w==', 1, 'ashin.nanda@hsumchaint.local', '09100000001', NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP(), 0),
-    (2, 'Ko Admin', '09100000002', 'AQAAAAIAAYagAAAAEDIpV3urEmFsT/sadx0glQu6ZQVPR2rBoaOrdj3OBmc0hdVzfIYOYHh972IzaIUUlg==', 0, 'admin@hsumchaint.local', '09100000002', NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP(), 0),
-    (3, 'Ma Donor One', '09100000003', 'AQAAAAIAAYagAAAAEDwKdJOjimPY1/Li3yxUzuxwkJ3NN1oqvSiniR+Z8jZ4sCkUfPuTKE2FSx5F1Pa+ZA==', 0, 'donor.one@hsumchaint.local', '09100000003', 'local-test-fcm-token-donor-one', UTC_TIMESTAMP(), UTC_TIMESTAMP(), 0),
-    (4, 'Ko Donor Two', '09100000004', 'AQAAAAIAAYagAAAAEJwZjGPdmtxmmoKCnEh1dS+i5Nq6sYn2y1aw9gswyUYQtYeYT/c5JNyDfAO2UVn+Nw==', 0, 'donor.two@hsumchaint.local', '09100000004', NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP(), 0),
-    (5, 'Ma Viewer', '09100000005', 'AQAAAAIAAYagAAAAENgQAA7XK8LSoUH9X2bHih50M4bRumRT+/zgkXuj2DRzg+ON/cVOYukm/pMQXoVT+w==', 0, 'viewer@hsumchaint.local', '09100000005', NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP(), 0)
+    (1, 'Ashin Nanda', '09100000001', 'AQAAAAIAAYagAAAAENgQAA7XK8LSoUH9X2bHih50M4bRumRT+/zgkXuj2DRzg+ON/cVOYukm/pMQXoVT+w==', 2, 'ashin.nanda@hsumchaint.local', '09100000001', NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP(), 0),
+    (2, 'Ko Admin', '09100000002', 'AQAAAAIAAYagAAAAEDIpV3urEmFsT/sadx0glQu6ZQVPR2rBoaOrdj3OBmc0hdVzfIYOYHh972IzaIUUlg==', 1, 'admin@hsumchaint.local', '09100000002', NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP(), 0),
+    (3, 'Ma Donor One', '09100000003', 'AQAAAAIAAYagAAAAEDwKdJOjimPY1/Li3yxUzuxwkJ3NN1oqvSiniR+Z8jZ4sCkUfPuTKE2FSx5F1Pa+ZA==', 3, 'donor.one@hsumchaint.local', '09100000003', 'local-test-fcm-token-donor-one', UTC_TIMESTAMP(), UTC_TIMESTAMP(), 0),
+    (4, 'Ko Donor Two', '09100000004', 'AQAAAAIAAYagAAAAEJwZjGPdmtxmmoKCnEh1dS+i5Nq6sYn2y1aw9gswyUYQtYeYT/c5JNyDfAO2UVn+Nw==', 3, 'donor.two@hsumchaint.local', '09100000004', NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP(), 0),
+    (5, 'Ma Viewer', '09100000005', 'AQAAAAIAAYagAAAAENgQAA7XK8LSoUH9X2bHih50M4bRumRT+/zgkXuj2DRzg+ON/cVOYukm/pMQXoVT+w==', 5, 'viewer@hsumchaint.local', '09100000005', NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP(), 0)
 ON DUPLICATE KEY UPDATE
     name = VALUES(name),
     password = VALUES(password),
-    user_type = VALUES(user_type),
+    role_id = VALUES(role_id),
     email = VALUES(email),
     contact_phone = VALUES(contact_phone),
     fcm_token = VALUES(fcm_token),
@@ -44,22 +89,22 @@ ON DUPLICATE KEY UPDATE
     created_by_id = VALUES(created_by_id);
 
 INSERT INTO Monastery_Member
-    (id, user_id, monastery_space_id, role, isOwner)
+    (id, user_id, monastery_space_id, role_id, is_owner)
 VALUES
-    (1, 1, 1, 0, 1),
+    (1, 1, 1, 2, 1),
     (2, 2, 1, 1, 0),
-    (3, 5, 1, 3, 0)
+    (3, 5, 1, 5, 0)
 ON DUPLICATE KEY UPDATE
     user_id = VALUES(user_id),
     monastery_space_id = VALUES(monastery_space_id),
-    role = VALUES(role),
-    isOwner = VALUES(isOwner);
+    role_id = VALUES(role_id),
+    is_owner = VALUES(is_owner);
 
 INSERT INTO Invitation
     (id, monastery_space_id, invited_user_id, invited_by_id, role, status, created_at)
 VALUES
-    (1, 1, 4, 1, 3, 0, UTC_TIMESTAMP()),
-    (2, 1, 5, 1, 3, 1, UTC_TIMESTAMP())
+    (1, 1, 4, 1, 5, 0, UTC_TIMESTAMP()),
+    (2, 1, 5, 1, 5, 1, UTC_TIMESTAMP())
 ON DUPLICATE KEY UPDATE
     monastery_space_id = VALUES(monastery_space_id),
     invited_user_id = VALUES(invited_user_id),
@@ -93,7 +138,7 @@ ON DUPLICATE KEY UPDATE
     completed_at = VALUES(completed_at);
 
 INSERT INTO Notification
-    (id, user_id, type, message, isRead, isDelete, created_at)
+    (id, user_id, type, message, is_read, is_deleted, created_at)
 VALUES
     (1, 1, 1, 'A new donation request is waiting for review.', 0, 0, UTC_TIMESTAMP()),
     (2, 3, 1, 'Your donation was accepted.', 0, 0, UTC_TIMESTAMP()),
@@ -103,8 +148,8 @@ ON DUPLICATE KEY UPDATE
     user_id = VALUES(user_id),
     type = VALUES(type),
     message = VALUES(message),
-    isRead = VALUES(isRead),
-    isDelete = VALUES(isDelete);
+    is_read = VALUES(is_read),
+    is_deleted = VALUES(is_deleted);
 
 INSERT INTO Refresh_Token
     (id, user_id, refresh_token, expires_at, created_at, revoked_at)
