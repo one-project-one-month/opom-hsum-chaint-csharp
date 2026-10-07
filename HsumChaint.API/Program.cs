@@ -1,6 +1,7 @@
 using HsumChaint.API.Extensions;
 using HsumChaint.Domain.Extensions;
 using HsumChaint.Database.Extensions;
+using Microsoft.OpenApi;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -43,6 +44,30 @@ builder.Services
     .AddDomainServices()
     .AddDatabaseServices(builder.Configuration);
 
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Hsum Chaint API",
+        Version = "v1",
+        Description = "Hsum Chaint Backend API"
+    });
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Enter your JWT token (without 'Bearer ' prefix)"
+    });
+    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    {
+        [new OpenApiSecuritySchemeReference("Bearer", document)] = []
+    });
+});
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(localFlutterCorsPolicy, policy =>
@@ -62,9 +87,14 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
-    app.MapScalarApiReference();
-    app.MapGet("/", () => Results.Redirect("/openapi/v1.json")).ExcludeFromDescription();
+    app.MapSwagger("/openapi/{documentName}.json");
+    app.MapScalarApiReference(options =>
+    {
+        options.WithTitle("Hsum Chaint API")
+            .WithTheme(ScalarTheme.Moon)
+            .WithOpenApiRoutePattern("/openapi/{documentName}.json");
+    });
+    app.MapGet("/", () => Results.Redirect("/scalar/v1")).ExcludeFromDescription();
 }
 
 app.UseHttpsRedirection();

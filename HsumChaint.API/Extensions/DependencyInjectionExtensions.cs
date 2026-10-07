@@ -9,7 +9,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using HsumChaint.Database.Models;
 using HsumChaint.Shared.Configuration;
-using Scalar.AspNetCore;
 using System.Text;
 
 namespace HsumChaint.API.Extensions;
@@ -25,7 +24,6 @@ public static class DependencyInjectionExtensions
             foreach (var permission in Permissions.All)
                 options.AddPolicy(permission, policy => policy.RequireAuthenticatedUser().AddRequirements(new PermissionRequirement(permission)));
         });
-        services.AddOpenApi();
         services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 
         return services;
