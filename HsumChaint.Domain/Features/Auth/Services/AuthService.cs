@@ -213,8 +213,9 @@ namespace HsumChaint.Domain.Features.Auth.Services
         public async Task<string> GenerateAndSaveRefreshToken(GenerateRefreshTokenDto reqModel)
         {
             var refreshToken = this.GenerateRefreshToken();
+            var hashedRefreshToken = HashToken(refreshToken);
 
-            reqModel.RefreshToken = refreshToken;
+            //reqModel.RefreshToken = refreshToken;
             reqModel.ExpiresAt = DateTime.UtcNow.AddDays(7);
 
             var existingRefreshToken = await _dbContext.RefreshTokens
@@ -225,15 +226,16 @@ namespace HsumChaint.Domain.Features.Auth.Services
                 await _dbContext.RefreshTokens.AddAsync(new RefreshToken
                 {
                     UserId = reqModel.UserId,
-                    RefreshToken1 = refreshToken,
+                    RefreshToken1 = hashedRefreshToken,
                     ExpiresAt = reqModel.ExpiresAt,
                     CreatedAt = DateTime.UtcNow
                 });
             }
             else
             {
-                existingRefreshToken.RefreshToken1 = refreshToken;
+                existingRefreshToken.RefreshToken1 = hashedRefreshToken;
                 existingRefreshToken.ExpiresAt = reqModel.ExpiresAt;
+                existingRefreshToken.RevokedAt = null;
             }
 
             await _dbContext.SaveChangesAsync();
@@ -257,15 +259,27 @@ namespace HsumChaint.Domain.Features.Auth.Services
         #region IsValidRefreshToken
         private async Task<bool> IsValidRefreshToken(int userId, string refreshToken)
         {
+            if (string.IsNullOrWhiteSpace(refreshToken))
+                return false;
+
+            var hashedRefreshToken = HashToken(refreshToken);
+
             var tokenModel = await _dbContext.RefreshTokens
                 .FirstOrDefaultAsync(x => x.UserId == userId);
 
-            if (tokenModel == null || tokenModel.RefreshToken1 != refreshToken || tokenModel.ExpiresAt <= DateTime.UtcNow)
-            {
+            if (tokenModel == null || tokenModel.RefreshToken1 != hashedRefreshToken || tokenModel.ExpiresAt <= DateTime.UtcNow || tokenModel.RevokedAt != null)
                 return false;
-            }
 
             return true;
+        }
+        #endregion
+
+        #region HashToken
+        private static string HashToken(string token)
+        {
+            using var sha256 = SHA256.Create();
+            var hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(token));
+            return Convert.ToHexString(hashBytes); 
         }
         #endregion
     }
