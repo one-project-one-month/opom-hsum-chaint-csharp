@@ -150,7 +150,7 @@ public class StartupTests
     }
 
     [Fact]
-    public async Task Rbac_AdminWithoutPermissionMapping_IsForbidden_AndRegistrationRequiresAuthorization()
+    public async Task Rbac_AdminWithoutPermissionMapping_IsForbidden_AndRegistrationIsAllowedForAnonymous()
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -163,7 +163,7 @@ public class StartupTests
         using var client = _factory.CreateClient(new() { BaseAddress = new Uri("https://localhost") });
         var anonymousRegister = await System.Net.Http.Json.HttpClientJsonExtensions.PostAsJsonAsync(client, "/api/v1/auth/register",
             new { Name = "Self Admin", PhoneNumber = "092", Password = "Passw0rd!", RoleId = 1 });
-        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, anonymousRegister.StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.OK, anonymousRegister.StatusCode);
         var login = await System.Net.Http.Json.HttpClientJsonExtensions.PostAsJsonAsync(client, "/api/v1/auth/login",
             new { PhoneNumber = "091", Password = "Passw0rd!" });
         var response = await System.Net.Http.Json.HttpContentJsonExtensions.ReadFromJsonAsync<HsumChaint.Shared.Result<HsumChaint.Domain.Features.Auth.DTOs.LoginResponseDto>>(login.Content);

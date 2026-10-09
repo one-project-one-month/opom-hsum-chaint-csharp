@@ -125,12 +125,14 @@ public class AuthServiceTests
         var user = CreateUser("1234567890", "Passw0rd!");
         user.Id = 55;
         var currentRefreshToken = Guid.NewGuid().ToString("N");
+        using var sha256 = System.Security.Cryptography.SHA256.Create();
+        var hashedToken = Convert.ToHexString(sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(currentRefreshToken)));
 
         dbContext.Users.Add(user);
         dbContext.RefreshTokens.Add(new RefreshToken
         {
             UserId = user.Id,
-            RefreshToken1 = currentRefreshToken,
+            RefreshToken1 = hashedToken,
             ExpiresAt = DateTime.UtcNow.AddHours(1)
         });
         await dbContext.SaveChangesAsync();
@@ -147,6 +149,66 @@ public class AuthServiceTests
         Assert.False(string.IsNullOrWhiteSpace(response.Data?.AccessToken));
         Assert.False(string.IsNullOrWhiteSpace(response.Data?.RefreshToken));
         Assert.Equal(user.Id, response.Data?.ID);
+    }
+
+    [Fact]
+    public async Task RefreshTokens_RejectsRevokedRefreshToken()
+    {
+        await using var dbContext = CreateDbContext();
+        var user = CreateUser("1234567890", "Passw0rd!");
+        user.Id = 56;
+        var currentRefreshToken = Guid.NewGuid().ToString("N");
+        using var sha256 = System.Security.Cryptography.SHA256.Create();
+        var hashedToken = Convert.ToHexString(sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(currentRefreshToken)));
+
+        dbContext.Users.Add(user);
+        dbContext.RefreshTokens.Add(new RefreshToken
+        {
+            UserId = user.Id,
+            RefreshToken1 = hashedToken,
+            ExpiresAt = DateTime.UtcNow.AddHours(1),
+            RevokedAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+        var authService = CreateService(dbContext);
+
+        var response = await authService.RefreshTokens(new RefreshTokenRequestDto
+        {
+            UserId = user.Id,
+            RefreshToken = currentRefreshToken
+        });
+
+        Assert.False(response.IsSuccess);
+        Assert.Equal("Invalid or expired Refresh Token", response.Message);
+    }
+
+    [Fact]
+    public async Task GenerateAndSaveRefreshToken_ClearsRevokedAt_WhenTokenReplaced()
+    {
+        await using var dbContext = CreateDbContext();
+        var user = CreateUser("1234567890", "Passw0rd!");
+        user.Id = 57;
+
+        dbContext.Users.Add(user);
+        dbContext.RefreshTokens.Add(new RefreshToken
+        {
+            UserId = user.Id,
+            RefreshToken1 = "old_hashed_token",
+            ExpiresAt = DateTime.UtcNow.AddHours(1),
+            RevokedAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+        var authService = CreateService(dbContext);
+
+        var newRawToken = await authService.GenerateAndSaveRefreshToken(new() { UserId = user.Id });
+
+        var tokenRecord = await dbContext.RefreshTokens.SingleAsync(r => r.UserId == user.Id);
+        Assert.Null(tokenRecord.RevokedAt);
+        Assert.NotEqual(newRawToken, tokenRecord.RefreshToken1);
+
+        using var sha256 = System.Security.Cryptography.SHA256.Create();
+        var expectedHash = Convert.ToHexString(sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(newRawToken)));
+        Assert.Equal(expectedHash, tokenRecord.RefreshToken1);
     }
 
     private static AppDbContext CreateDbContext()

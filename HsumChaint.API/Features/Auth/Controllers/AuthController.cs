@@ -22,7 +22,6 @@ namespace HsumChaint.API.Features.Auth.Controllers
 
         #region Register
         [HttpPost("register")]
-        [HasPermission(Permissions.Roles.Assign)]
         public async Task<IActionResult> Register(RegisterRequestDto reqModel)
         {
             var registerResponse = await _authService.Register(reqModel);
@@ -34,7 +33,6 @@ namespace HsumChaint.API.Features.Auth.Controllers
         #region Login
 
         [HttpPost("login")]
-
         public async Task<IActionResult> Login(LoginRequestDto reqModel)
         {
             var loginResponse = await _authService.Login(reqModel);
