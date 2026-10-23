@@ -188,17 +188,36 @@ namespace HsumChaint.API.Features.User.Controllers
             return response.ToActionResult();
         }
 
-        [HttpPut("{id}/monk-profile")]
-        public async Task<IActionResult> UpdateMonkProfile(int id, UpdateMonkProfileRequestDto request)
+        [HttpPatch("{id}/monk-profile")]
+        public async Task<IActionResult> UpdateMonkProfile(int id, UpdateMonkProfileRequestDto? request)
         {
             if (!CanAccessUserResource(id))
             {
                 return Forbid();
             }
 
+            if (request == null)
+            {
+                return Result<MonkProfileDto>.Failure("Request data is required.").ToActionResult();
+            }
+
             request.UserId = id;
             var currentUserId = User.GetCurrentUserId();
             var response = await _userService.UpdateMonkProfile(currentUserId ?? 0, request);
+            return response.ToActionResult();
+        }
+
+        [HttpDelete("{id}/monk-profile")]
+        public async Task<IActionResult> DeleteMonkProfile(int id)
+        {
+            if (!CanAccessUserResource(id, Permissions.Users.Manage))
+            {
+                return Forbid();
+            }
+
+            var currentUserId = User.GetCurrentUserId();
+            var request = new DeleteMonkProfileRequestDto { UserId = id };
+            var response = await _userService.DeleteMonkProfile(currentUserId ?? 0, request);
             return response.ToActionResult();
         }
 

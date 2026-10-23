@@ -154,6 +154,99 @@ public class UserServiceTests
         Assert.IsType<OkObjectResult>(adminResult);
     }
 
+    [Fact]
+    public async Task UserController_DeleteMonkProfile_AllowsSelfAndAdmin_ForbidsOthers()
+    {
+        await using var db = CreateDbContext();
+        db.Users.Add(new InfrastructureUser
+        {
+            Id = 10,
+            Name = "Monk U Thawbana",
+            PhoneNumber = "0911111111",
+            Password = "pw",
+            RoleId = 2, // Monk
+            IsDeleted = false
+        });
+        db.MonkProfiles.Add(new MonkProfile
+        {
+            Id = 1,
+            UserId = 10,
+            MonasteryName = "Mahagandhayon"
+        });
+        await db.SaveChangesAsync();
+
+        var userService = new UserService(db);
+        var controller = new UserController(userService);
+
+        // 1. User 3 (unauthorized regular user) -> Forbid (403)
+        var userClaims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, "3"),
+            new(ClaimTypes.Role, "User")
+        };
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(userClaims, "test")) }
+        };
+        var otherResult = await controller.DeleteMonkProfile(10);
+        Assert.IsType<ForbidResult>(otherResult);
+
+        // 2. User 10 (the monk owner themselves) -> OK (200)
+        var monkClaims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, "10"),
+            new(ClaimTypes.Role, "Monk")
+        };
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(monkClaims, "test")) }
+        };
+        var ownResult = await controller.DeleteMonkProfile(10);
+        Assert.IsType<OkObjectResult>(ownResult);
+
+        // 3. Admin (Id = 1) -> OK (200) after adding profile back
+        db.MonkProfiles.Add(new MonkProfile
+        {
+            Id = 2,
+            UserId = 10,
+            MonasteryName = "Mahagandhayon Re-added"
+        });
+        await db.SaveChangesAsync();
+
+        var adminClaims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, "1"),
+            new(ClaimTypes.Role, "Admin")
+        };
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(adminClaims, "test")) }
+        };
+        var adminResult = await controller.DeleteMonkProfile(10);
+        Assert.IsType<OkObjectResult>(adminResult);
+    }
+
+    [Fact]
+    public async Task UserController_UpdateMonkProfile_WithNullBody_ReturnsBadRequest()
+    {
+        await using var db = CreateDbContext();
+        var userService = new UserService(db);
+        var controller = new UserController(userService);
+
+        var monkClaims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, "10"),
+            new(ClaimTypes.Role, "Monk")
+        };
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(monkClaims, "test")) }
+        };
+
+        var result = await controller.UpdateMonkProfile(10, null);
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
     private static AppDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()

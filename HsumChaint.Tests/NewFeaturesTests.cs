@@ -100,6 +100,16 @@ public class NewFeaturesTests
         var getUpdated = await userService.GetMonkProfile(10, 10);
         Assert.True(getUpdated.IsSuccess);
         Assert.Equal("Panditarama", getUpdated.Data!.MonasteryName);
+
+        // 4. Null fields are preserved during partial updates.
+        var partialUpdate = new UpdateMonkProfileRequestDto { MonasteryName = "Updated name" };
+        var partialResult = await userService.UpdateMonkProfile(10, 10, partialUpdate);
+        Assert.Equal("Updated name", partialResult.Data!.MonasteryName);
+        Assert.Equal("Shwe Taung Gon, Yangon", partialResult.Data.MonasteryAddress);
+
+        var nullResult = await userService.UpdateMonkProfile(10, 10, new UpdateMonkProfileRequestDto { MonasteryAddress = null });
+        Assert.Equal("Updated name", nullResult.Data!.MonasteryName);
+        Assert.Equal("Shwe Taung Gon, Yangon", nullResult.Data.MonasteryAddress);
     }
 
     [Fact]
@@ -121,6 +131,119 @@ public class NewFeaturesTests
         var result = await userService.GetMonkProfile(20, 20);
         Assert.False(result.IsSuccess);
         Assert.Contains("not a monk", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task MonkProfile_Delete_WorksForMonkUser_AndRemovesFromDb()
+    {
+        await using var db = CreateDbContext();
+        db.Users.Add(new User
+        {
+            Id = 10,
+            Name = "U Pandita",
+            PhoneNumber = "09111",
+            Password = "pw",
+            RoleId = 2, // Monk
+            IsDeleted = false
+        });
+        db.MonkProfiles.Add(new MonkProfile
+        {
+            Id = 1,
+            UserId = 10,
+            MonasteryName = "Panditarama",
+            MonasteryAddress = "Shwe Taung Gon, Yangon"
+        });
+        await db.SaveChangesAsync();
+
+        var userService = new UserService(db);
+
+        // Delete profile
+        var deleteResult = await userService.DeleteMonkProfile(10, 10);
+        Assert.True(deleteResult.IsSuccess);
+        Assert.Equal("Monk profile deleted successfully.", deleteResult.Message);
+
+        // Verify hard-deleted from database
+        Assert.Null(await db.MonkProfiles.FirstOrDefaultAsync(p => p.UserId == 10));
+
+        // GetMonkProfile gracefully returns empty defaults after delete
+        var getAfterDelete = await userService.GetMonkProfile(10, 10);
+        Assert.True(getAfterDelete.IsSuccess);
+        Assert.Equal(0, getAfterDelete.Data!.Id);
+        Assert.Null(getAfterDelete.Data.MonasteryName);
+        Assert.Null(getAfterDelete.Data.MonasteryAddress);
+    }
+
+    [Fact]
+    public async Task MonkProfile_Delete_ProfileNotFound_Fails()
+    {
+        await using var db = CreateDbContext();
+        db.Users.Add(new User
+        {
+            Id = 10,
+            Name = "U Pandita",
+            PhoneNumber = "09111",
+            Password = "pw",
+            RoleId = 2, // Monk
+            IsDeleted = false
+        });
+        await db.SaveChangesAsync();
+
+        var userService = new UserService(db);
+        var result = await userService.DeleteMonkProfile(10, 10);
+        Assert.False(result.IsSuccess);
+        Assert.Contains("Monk profile not found.", result.Message);
+    }
+
+    [Fact]
+    public async Task MonkProfile_Delete_UserNotFound_Fails()
+    {
+        await using var db = CreateDbContext();
+        var userService = new UserService(db);
+        var result = await userService.DeleteMonkProfile(999, 999);
+        Assert.False(result.IsSuccess);
+        Assert.Contains("User not found.", result.Message);
+    }
+
+    [Fact]
+    public async Task MonkProfile_Delete_ForNonMonk_Fails()
+    {
+        await using var db = CreateDbContext();
+        db.Users.Add(new User
+        {
+            Id = 20,
+            Name = "Ko Aung",
+            PhoneNumber = "09222",
+            Password = "pw",
+            RoleId = 3, // Regular User / Donor
+            IsDeleted = false
+        });
+        await db.SaveChangesAsync();
+
+        var userService = new UserService(db);
+        var result = await userService.DeleteMonkProfile(20, 20);
+        Assert.False(result.IsSuccess);
+        Assert.Contains("User is not a monk.", result.Message);
+    }
+
+    [Fact]
+    public async Task MonkProfile_Update_NullRequest_Fails()
+    {
+        await using var db = CreateDbContext();
+        db.Users.Add(new User
+        {
+            Id = 10,
+            Name = "U Pandita",
+            PhoneNumber = "09111",
+            Password = "pw",
+            RoleId = 2, // Monk
+            IsDeleted = false
+        });
+        await db.SaveChangesAsync();
+
+        var userService = new UserService(db);
+        var result = await userService.UpdateMonkProfile(10, 10, null!);
+        Assert.False(result.IsSuccess);
+        Assert.Contains("Request data is required.", result.Message);
     }
 
     [Fact]

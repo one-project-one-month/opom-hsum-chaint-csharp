@@ -261,6 +261,11 @@ namespace HsumChaint.Domain.Features.User.Services
         {
             try
             {
+                if (request == null)
+                {
+                    return Result<MonkProfileDto>.Failure("Request data is required.");
+                }
+
                 var targetUser = await _context.Users.Include(u => u.Role)
                     .FirstOrDefaultAsync(u => u.Id == targetUserId && u.IsDeleted == false);
                 if (targetUser == null)
@@ -286,8 +291,14 @@ namespace HsumChaint.Domain.Features.User.Services
                 }
                 else
                 {
-                    profile.MonasteryName = request.MonasteryName;
-                    profile.MonasteryAddress = request.MonasteryAddress;
+                    if (request.MonasteryName != null)
+                    {
+                        profile.MonasteryName = request.MonasteryName;
+                    }
+                    if (request.MonasteryAddress != null)
+                    {
+                        profile.MonasteryAddress = request.MonasteryAddress;
+                    }
                     _context.MonkProfiles.Update(profile);
                 }
 
@@ -308,6 +319,40 @@ namespace HsumChaint.Domain.Features.User.Services
                 return Result<MonkProfileDto>.Failure($"Application Layer Exception: {ex.Message}");
             }
         }
+
+        public async Task<Result> DeleteMonkProfile(int currentUserId, int targetUserId)
+        {
+            try
+            {
+                var targetUser = await _context.Users.Include(u => u.Role)
+                    .FirstOrDefaultAsync(u => u.Id == targetUserId && u.IsDeleted == false);
+                if (targetUser == null)
+                {
+                    return Result.Failure("User not found.");
+                }
+
+                if (targetUser.Role == null || !string.Equals(targetUser.Role.Name, "Monk", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Result.Failure("User is not a monk.");
+                }
+
+                var profile = await _context.MonkProfiles.FirstOrDefaultAsync(p => p.UserId == targetUserId);
+                if (profile == null)
+                {
+                    return Result.Failure("Monk profile not found.");
+                }
+
+                _context.MonkProfiles.Remove(profile);
+                await _context.SaveChangesAsync();
+
+                return Result.Success("Monk profile deleted successfully.");
+            }
+            catch (Exception ex)
+            {
+                return Result.Failure($"Application Layer Exception: {ex.Message}");
+            }
+        }
+
         #endregion
 
         #region UserSettings
@@ -492,7 +537,9 @@ namespace HsumChaint.Domain.Features.User.Services
         public Task<Result<MonkProfileDto>> GetMonkProfile(int currentUserId, GetMonkProfileRequestDto request) =>
             GetMonkProfile(currentUserId, request.UserId);
         public Task<Result<MonkProfileDto>> UpdateMonkProfile(int currentUserId, UpdateMonkProfileRequestDto request) =>
-            UpdateMonkProfile(currentUserId, request.UserId, request);
+            UpdateMonkProfile(currentUserId, request?.UserId ?? 0, request!);
+        public Task<Result> DeleteMonkProfile(int currentUserId, DeleteMonkProfileRequestDto request) =>
+            request == null ? Task.FromResult(Result.Failure("Request data is required.")) : DeleteMonkProfile(currentUserId, request.UserId);
         public Task<Result<UserSettingDto>> GetUserSettings(int currentUserId, GetUserSettingsRequestDto request) =>
             GetUserSettings(currentUserId, request.UserId);
         public Task<Result<UserSettingDto>> UpdateUserSettings(int currentUserId, UpdateUserSettingRequestDto request) =>

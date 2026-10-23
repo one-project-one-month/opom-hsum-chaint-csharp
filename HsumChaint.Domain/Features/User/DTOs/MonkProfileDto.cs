@@ -19,3 +19,8 @@ public class UpdateMonkProfileRequestDto
     public string? MonasteryName { get; set; }
     public string? MonasteryAddress { get; set; }
 }
+
+public class DeleteMonkProfileRequestDto
+{
+    public int UserId { get; set; }
+}

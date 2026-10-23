@@ -14,6 +14,34 @@ namespace HsumChaint.Tests;
 public class MonasteryServiceTests
 {
     [Fact]
+    public async Task UpdateMonastery_PreservesNullFields()
+    {
+        await using var dbContext = CreateDbContext();
+        SeedUser(dbContext, 1, "Owner", "091", roleId: 2);
+        SeedMonastery(dbContext, 10, 1);
+        await dbContext.SaveChangesAsync();
+        var monastery = dbContext.MonasterySpaces.Single(x => x.Id == 10);
+        monastery.MonasteryName = "Original";
+        monastery.Description = "Original description";
+        monastery.Address = "Original address";
+        await dbContext.SaveChangesAsync();
+        var service = new MonasteryService(dbContext);
+
+        var partialRequest = new UpdateMonasteryRequestDto { Description = "Updated description" };
+        var partialResult = await service.UpdateMonastery(1, 10, partialRequest);
+
+        Assert.True(partialResult.IsSuccess);
+        Assert.Equal("Original", partialResult.Data!.MonasteryName);
+        Assert.Equal("Updated description", partialResult.Data.Description);
+        Assert.Equal("Original address", partialResult.Data.Address);
+
+        var nullResult = await service.UpdateMonastery(1, 10, new UpdateMonasteryRequestDto { Address = null });
+        Assert.Equal("Original", nullResult.Data!.MonasteryName);
+        Assert.Equal("Updated description", nullResult.Data.Description);
+        Assert.Equal("Original address", nullResult.Data.Address);
+    }
+
+    [Fact]
     public async Task CustomRole_GranularPermissions_ControlMembershipOperationsSeparately()
     {
         await using var db = CreateDbContext();

@@ -117,7 +117,7 @@ flowchart LR
 - `POST /api/v1/monasteries`
 - `GET /api/v1/monasteries/mine`
 - `GET /api/v1/monasteries/{id}`
-- `PUT /api/v1/monasteries/{id}`
+- `PATCH /api/v1/monasteries/{id}`
 - `POST /api/v1/monasteries/{id}/invitations`
 - `POST /api/v1/monasteries/invitations/{invitationId}/respond`
 - `GET /api/v1/monasteries/{id}/members`
@@ -129,10 +129,10 @@ flowchart LR
 - `POST /api/v1/donations/manual`
 - `GET /api/v1/donations`
 - `GET /api/v1/donations/{id}`
-- `PUT /api/v1/donations/{id}/review`
+- `POST /api/v1/donations/{id}/review`
 - `PUT /api/v1/donations/{id}/schedule`
-- `PUT /api/v1/donations/{id}/complete`
-- `PUT /api/v1/donations/{id}/cancel`
+- `POST /api/v1/donations/{id}/complete`
+- `POST /api/v1/donations/{id}/cancel`
 
 ## 5) Development commands
 

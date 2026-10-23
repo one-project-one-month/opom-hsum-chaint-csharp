@@ -1,5 +1,6 @@
 using HsumChaint.Shared;
 using HsumChaint.Domain.Features.Monastery.DTOs;
+using HsumChaint.Domain.Features.RolePermission.DTOs;
 
 namespace HsumChaint.Domain.Features.Monastery.ServiceInterfaces
 {
@@ -17,5 +18,7 @@ namespace HsumChaint.Domain.Features.Monastery.ServiceInterfaces
         Task<PagedResult<MonasteryMemberDto>> GetMembers(int currentUserId, GetMonasteryMembersRequestDto request);
         Task<Result<MonasteryMemberDto>> UpdateMemberRole(int currentUserId, UpdateMemberRoleRequestDto request);
         Task<Result<MonasteryMemberDto>> RemoveMember(int currentUserId, RemoveMemberRequestDto request);
+        Task<Result<List<SpacePermissionDto>>> GetSpacePermissions(int currentUserId, int monasterySpaceId);
+        Task<Result<List<SpaceRoleDto>>> GetSpaceRoles(int currentUserId, int monasterySpaceId);
     }
 }

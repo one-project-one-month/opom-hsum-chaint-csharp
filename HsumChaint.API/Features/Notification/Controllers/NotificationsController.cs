@@ -35,7 +35,7 @@ namespace HsumChaint.API.Features.Notification.Controllers
         }
 
         [Route("read-noti")]
-        [HttpPut]
+        [HttpPatch]
         public async Task<IActionResult> ReadNoti([FromBody] ReadNotificationRequestDto requestModel)
         {
             if (requestModel == null || requestModel.NotificationId <= 0 || requestModel.UserId <= 0)

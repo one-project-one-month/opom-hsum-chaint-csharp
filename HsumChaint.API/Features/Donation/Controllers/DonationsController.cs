@@ -77,7 +77,7 @@ namespace HsumChaint.API.Features.Donation.Controllers
             return response.ToActionResult();
         }
 
-        [HttpPut("{id}/review")]
+        [HttpPost("{id}/review")]
         [HasPermission(Permissions.Donation.Review)]
         public async Task<IActionResult> ReviewDonation(int id, ReviewDonationRequestDto request)
         {
@@ -107,7 +107,7 @@ namespace HsumChaint.API.Features.Donation.Controllers
             return response.ToActionResult();
         }
 
-        [HttpPut("{id}/complete")]
+        [HttpPost("{id}/complete")]
         [HasPermission(Permissions.Donation.Schedule)]
         public async Task<IActionResult> CompleteDonation(int id)
         {
@@ -122,7 +122,7 @@ namespace HsumChaint.API.Features.Donation.Controllers
             return response.ToActionResult();
         }
 
-        [HttpPut("{id}/cancel")]
+        [HttpPost("{id}/cancel")]
         [HasPermission(Permissions.Donation.Cancel)]
         public async Task<IActionResult> CancelDonation(int id)
         {

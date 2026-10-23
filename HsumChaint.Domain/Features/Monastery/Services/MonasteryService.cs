@@ -3,6 +3,7 @@ using HsumChaint.Shared.Authorization;
 using HsumChaint.Database.Models;
 using HsumChaint.Domain.Features.Monastery.DTOs;
 using HsumChaint.Domain.Features.Monastery.ServiceInterfaces;
+using HsumChaint.Domain.Features.RolePermission.DTOs;
 using HsumChaint.Shared.CommonEnum;
 using Microsoft.EntityFrameworkCore;
 using NotificationEntity = HsumChaint.Database.Models.Notification;
@@ -74,9 +75,18 @@ namespace HsumChaint.Domain.Features.Monastery.Services
                 return Result<MonasterySpaceDto>.Failure("Monastery not found.");
             }
 
-            monastery.MonasteryName = string.IsNullOrWhiteSpace(request.MonasteryName) ? monastery.MonasteryName : request.MonasteryName;
-            monastery.Description = request.Description;
-            monastery.Address = request.Address;
+            if (!string.IsNullOrWhiteSpace(request.MonasteryName))
+            {
+                monastery.MonasteryName = request.MonasteryName;
+            }
+            if (request.Description != null)
+            {
+                monastery.Description = request.Description;
+            }
+            if (request.Address != null)
+            {
+                monastery.Address = request.Address;
+            }
             await _dbContext.SaveChangesAsync();
 
             return Result<MonasterySpaceDto>.Success(MapMonastery(monastery, member!.SpaceRoleId, member.SpaceRole?.Name, member.IsOwner == true), "Monastery updated successfully.");
@@ -592,6 +602,103 @@ namespace HsumChaint.Domain.Features.Monastery.Services
                 Status = invitation.Status,
                 CreatedAt = invitation.CreatedAt
             };
+        }
+
+        public async Task<Result<List<SpacePermissionDto>>> GetSpacePermissions(int currentUserId, int monasterySpaceId)
+        {
+            var monastery = await ActiveMonasteries.FirstOrDefaultAsync(x => x.Id == monasterySpaceId);
+            if (monastery == null)
+            {
+                return Result<List<SpacePermissionDto>>.Failure("Monastery not found.");
+            }
+
+            var member = await GetMember(currentUserId, monasterySpaceId);
+            var user = await _dbContext.Users.Include(u => u.Role).AsNoTracking().FirstOrDefaultAsync(u => u.Id == currentUserId && u.IsDeleted == false);
+            var isSystemAdmin = user?.Role != null && !user.Role.IsDeleted && string.Equals(user.Role.Name, "Admin", StringComparison.OrdinalIgnoreCase);
+
+            if (member == null && !isSystemAdmin)
+            {
+                return Result<List<SpacePermissionDto>>.Failure("User is not authorized to view monastery permissions.");
+            }
+
+            if (member?.IsOwner == true || isSystemAdmin)
+            {
+                var allPermissions = await _dbContext.SpacePermissions
+                    .AsNoTracking()
+                    .Where(p => !p.IsDeleted)
+                    .OrderBy(p => p.Id)
+                    .Select(p => new SpacePermissionDto
+                    {
+                        Id = p.Id,
+                        Name = p.Name,
+                        Description = p.Description
+                    })
+                    .ToListAsync();
+
+                return Result<List<SpacePermissionDto>>.Success(allPermissions, "Space permissions retrieved successfully.");
+            }
+
+            var memberPermissions = await (
+                from srp in _dbContext.SpaceRolePermissions.AsNoTracking()
+                join sp in _dbContext.SpacePermissions.AsNoTracking() on srp.SpacePermissionId equals sp.Id
+                where srp.SpaceRoleId == member!.SpaceRoleId
+                      && !srp.IsDeleted
+                      && !srp.SpaceRole.IsDeleted
+                      && !sp.IsDeleted
+                orderby sp.Id
+                select new SpacePermissionDto
+                {
+                    Id = sp.Id,
+                    Name = sp.Name,
+                    Description = sp.Description
+                }).Distinct().ToListAsync();
+
+            return Result<List<SpacePermissionDto>>.Success(memberPermissions, "Space permissions retrieved successfully.");
+        }
+
+        public async Task<Result<List<SpaceRoleDto>>> GetSpaceRoles(int currentUserId, int monasterySpaceId)
+        {
+            var monastery = await ActiveMonasteries.FirstOrDefaultAsync(x => x.Id == monasterySpaceId);
+            if (monastery == null)
+            {
+                return Result<List<SpaceRoleDto>>.Failure("Monastery not found.");
+            }
+
+            var member = await GetMember(currentUserId, monasterySpaceId);
+            var user = await _dbContext.Users.Include(u => u.Role).AsNoTracking().FirstOrDefaultAsync(u => u.Id == currentUserId && u.IsDeleted == false);
+            var isSystemAdmin = user?.Role != null && !user.Role.IsDeleted && string.Equals(user.Role.Name, "Admin", StringComparison.OrdinalIgnoreCase);
+
+            if (member == null && !isSystemAdmin)
+            {
+                return Result<List<SpaceRoleDto>>.Failure("User is not authorized to view monastery roles.");
+            }
+
+            var roles = await _dbContext.SpaceRoles
+                .AsNoTracking()
+                .Where(r => !r.IsDeleted)
+                .Include(r => r.SpaceRolePermissions)
+                .ThenInclude(srp => srp.SpacePermission)
+                .OrderBy(r => r.Id)
+                .ToListAsync();
+
+            var roleDtos = roles.Select(role => new SpaceRoleDto
+            {
+                Id = role.Id,
+                Name = role.Name,
+                Description = role.Description,
+                Permissions = role.SpaceRolePermissions
+                    .Where(rp => !rp.IsDeleted && !rp.SpacePermission.IsDeleted)
+                    .Select(rp => new SpacePermissionDto
+                    {
+                        Id = rp.SpacePermissionId,
+                        Name = rp.SpacePermission.Name,
+                        Description = rp.SpacePermission.Description
+                    })
+                    .OrderBy(p => p.Id)
+                    .ToList()
+            }).ToList();
+
+            return Result<List<SpaceRoleDto>>.Success(roleDtos, "Space roles retrieved successfully.");
         }
     }
 }
