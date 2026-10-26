@@ -15,18 +15,27 @@ For a fresh local database, run `000_create_local_database.sql` followed by `001
 The initial refactor moved internal code to a feature-oriented structure. The dynamic RBAC changes above update DTOs and authorization requirements.
 
 ### Current solution topology
+
 - `HsumChaint.API`
 - `HsumChaint.Domain`
 - `HsumChaint.Database`
 - `HsumChaint.Shared`
 
+> [!NOTE]
+> **Mobile Client Repository**: The legacy `HsumChaint.Mobile` subproject inside this repository is **deprecated and inactive**. All active and future Flutter mobile client development is maintained in the dedicated repository:
+>
+> - **GitHub**: [one-project-one-month/HsumChaint_Flutter](https://github.com/one-project-one-month/HsumChaint_Flutter)
+
 ### Feature slices (non-breaking)
+
 - `HsumChaint.API/Features/{Auth,User,Notification}/...`
 - `HsumChaint.Domain/Features/{Auth,User,Notification}/...`
 - `HsumChaint.Database/Models/...`
 
 ### Donation management scope
+
 HsumChaint is now shaped as a mobile-ready backend for monastery donation management:
+
 - users can register, login, and refresh JWT tokens
 - monastery owners can create monastery spaces and manage members
 - owners/admins can invite existing users into monastery roles
@@ -36,12 +45,14 @@ HsumChaint is now shaped as a mobile-ready backend for monastery donation manage
 - donation lifecycle changes create database notifications and optionally send Firebase push when a user has an FCM token
 
 ### Cross-layer boundaries
+
 - API handles HTTP entry only and delegates to Domain services.
 - Domain handles feature orchestration, validation, auth/token flow, notification sending, and DTO-entity mapping.
 - Database contains EF Core database-first `AppDbContext` and table models only.
 - Shared stores cross-project configuration contracts and enums.
 
 ### Startup/Composition refactor
+
 - `Program.cs` now focuses on host bootstrap + middleware + endpoint mapping.
 - All registration is split into extension methods:
   - `HsumChaint.API/Extensions/DependencyInjectionExtensions.cs`
@@ -73,6 +84,7 @@ flowchart LR
 ## 3) Migration / onboarding note
 
 ### What moved
+
 - API controllers moved from `HsumChaint.API/Controllers/*` into:
   - `HsumChaint.API/Features/Auth/Controllers`
   - `HsumChaint.API/Features/User/Controllers`
@@ -83,6 +95,7 @@ flowchart LR
 - Shared enums/options moved from `HsumChaint.Common` to `HsumChaint.Shared`.
 
 ### Where to add new features
+
 - Add each feature under:
   - `HsumChaint.API/Features/<Feature>/Controllers`
   - `HsumChaint.Domain/Features/<Feature>/{DTOs,ServiceInterfaces,Services}`
@@ -93,46 +106,105 @@ flowchart LR
   - `HsumChaint.Database/Extensions/DependencyInjectionExtensions.cs`
 
 ### Shared config placement
+
 - Default/shared values: `HsumChaint.API/Config/appsettings.json`
 - Stage-specific override values: `HsumChaint.API/Config/custom-settings-<stage>.json`
 - Environment values continue to work through standard .NET configuration providers.
 
 ### Database script
+
 - Complete local database setup is captured in:
   - `HsumChaint.Database/Scripts/000_create_local_database.sql`
 - One round of local test seed data is captured in:
   - `HsumChaint.Database/Scripts/001_seed_test_data.sql`
 - Donation-management schema additions for an existing older database are captured in:
   - `HsumChaint.Database/Scripts/20260831_complete_donation_management.sql`
+- Granular donation deletion permission (`Donation.Delete`) for existing databases is captured in:
+  - `HsumChaint.Database/Scripts/20261023_add_donation_delete_permission.sql`
 - This project continues to follow the database-first approach; run the complete SQL script against local MySQL before using the API, then run the seed script when you need sample users, monastery, members, donations, invitations, notifications, and settings.
 
 ## 4) Mobile API summary
 
 ### Auth
+
 - `POST /api/v1/Auth/register`
 - `POST /api/v1/Auth/login`
 - `POST /api/v1/Auth/refresh-token`
 
+### Users & Profiles
+
+- `GET /api/user` (System Admin)
+- `GET /api/user/{id}`
+- `PUT /api/user`
+- `DELETE /api/user/{id}` (System Admin)
+- `GET /api/user/{id}/invitations`
+- `GET /api/user/{id}/invited-by-list`
+- `GET /api/user/{id}/notification`
+- `DELETE /api/user/{id}/notification`
+- `GET /api/user/{id}/monk-profile`
+- `PATCH /api/user/{id}/monk-profile`
+- `DELETE /api/user/{id}/monk-profile`
+- `GET /api/user/{id}/settings`
+- `PUT /api/user/{id}/settings`
+
 ### Monasteries
+
+- `GET /api/v1/monasteries` (Public discovery)
+- `GET /api/v1/monasteries/search` (Public search)
 - `POST /api/v1/monasteries`
 - `GET /api/v1/monasteries/mine`
 - `GET /api/v1/monasteries/{id}`
 - `PATCH /api/v1/monasteries/{id}`
+- `DELETE /api/v1/monasteries/{id}`
+- `GET /api/v1/monasteries/{id}/permissions`
+- `GET /api/v1/monasteries/{id}/roles`
 - `POST /api/v1/monasteries/{id}/invitations`
 - `POST /api/v1/monasteries/invitations/{invitationId}/respond`
 - `GET /api/v1/monasteries/{id}/members`
 - `PUT /api/v1/monasteries/{id}/members/{memberUserId}/role`
 - `DELETE /api/v1/monasteries/{id}/members/{memberUserId}`
 
+### Space Roles & Space Permissions
+
+- `GET /api/v1/space-roles`
+- `GET /api/v1/space-roles/{id}`
+- `POST /api/v1/space-roles`
+- `PUT /api/v1/space-roles/{id}`
+- `DELETE /api/v1/space-roles/{id}`
+- `POST /api/v1/space-roles/assign-permissions`
+- `GET /api/v1/space-permissions`
+
 ### Donations
+
 - `POST /api/v1/donations/request`
 - `POST /api/v1/donations/manual`
+- `POST /api/v1/donations/batch`
+- `POST /api/v1/donations/recurring/request`
+- `POST /api/v1/donations/recurring/manual`
 - `GET /api/v1/donations`
 - `GET /api/v1/donations/{id}`
+- `GET /api/v1/donations/calendar`
 - `POST /api/v1/donations/{id}/review`
 - `PUT /api/v1/donations/{id}/schedule`
 - `POST /api/v1/donations/{id}/complete`
 - `POST /api/v1/donations/{id}/cancel`
+- `DELETE /api/v1/donations/{id}`
+
+### Notifications
+
+- `POST /api/v1/notifications/create`
+- `PATCH /api/v1/notifications/read-noti`
+- `DELETE /api/v1/notifications/delete`
+
+### System RBAC
+
+- `GET /api/v1/roles`
+- `GET /api/v1/roles/{id}`
+- `POST /api/v1/roles`
+- `PUT /api/v1/roles/{id}`
+- `DELETE /api/v1/roles/{id}`
+- `POST /api/v1/roles/assign-permissions`
+- `GET /api/v1/permissions`
 
 ## 5) Development commands
 
@@ -166,5 +238,6 @@ Page values must be positive and produce an offset within the supported integer 
 - Run API: `dotnet run --project HsumChaint.API`
 
 ## 6) Legacy notes
+
 - `dotnet ef dbcontext scaffold ...` command kept below for database scaffolding tasks.
 - `docker compose up --build`
