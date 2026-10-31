@@ -12,6 +12,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using UserEntity = HsumChaint.Database.Models.User;
 
 namespace HsumChaint.Domain.Features.Auth.Services
@@ -39,6 +40,21 @@ namespace HsumChaint.Domain.Features.Auth.Services
                 if (string.IsNullOrWhiteSpace(reqModel.Name) || string.IsNullOrWhiteSpace(reqModel.PhoneNumber) || string.IsNullOrWhiteSpace(reqModel.Password))
                 {
                     return Result.Failure("Name, phone number and password are required.");
+                }
+
+                if (!Regex.IsMatch(reqModel.PhoneNumber, @"^\+?[0-9]+$"))
+                {
+                    return Result.Failure("Phone number must contain English digits only.");
+                }
+
+                if (!string.IsNullOrWhiteSpace(reqModel.ContactPhoneNumber) && !Regex.IsMatch(reqModel.ContactPhoneNumber, @"^\+?[0-9]+$"))
+                {
+                    return Result.Failure("Contact phone number must contain English digits only.");
+                }
+
+                if (!Regex.IsMatch(reqModel.Password, @"^[\x21-\x7E]+$"))
+                {
+                    return Result.Failure("Password must contain English characters and symbols only.");
                 }
                 var existingUser = await _dbContext.Users.Include(u => u.Role)
                     .FirstOrDefaultAsync(x => x.PhoneNumber == reqModel.PhoneNumber && x.IsDeleted == false);
@@ -100,6 +116,15 @@ namespace HsumChaint.Domain.Features.Auth.Services
         {
             try
             {
+                if (string.IsNullOrWhiteSpace(reqModel.PhoneNumber) || string.IsNullOrWhiteSpace(reqModel.Password))
+                {
+                    return Result<LoginResponseDto>.Failure("Phone number or password incorrect!");
+                }
+
+                if (!Regex.IsMatch(reqModel.PhoneNumber, @"^\+?[0-9]+$") || !Regex.IsMatch(reqModel.Password, @"^[\x21-\x7E]+$"))
+                {
+                    return Result<LoginResponseDto>.Failure("Phone number or password incorrect!");
+                }
                 var existingUser = await _dbContext.Users.Include(u => u.Role)
                     .FirstOrDefaultAsync(x => x.PhoneNumber == reqModel.PhoneNumber && x.IsDeleted == false);
 

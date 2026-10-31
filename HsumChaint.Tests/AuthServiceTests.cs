@@ -211,6 +211,102 @@ public class AuthServiceTests
         Assert.Equal(expectedHash, tokenRecord.RefreshToken1);
     }
 
+    [Fact]
+    public async Task Register_RejectsMyanmarDigitsInPhoneNumber()
+    {
+        await using var dbContext = CreateDbContext();
+        var service = CreateService(dbContext);
+
+        var result = await service.Register(new RegisterRequestDto
+        {
+            Name = "Ko Ko",
+            PhoneNumber = "၀၉၁၂၃၄၅၆၇၈",
+            Password = "Password123!",
+            RoleId = 3
+        });
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("Phone number must contain English digits only.", result.Message);
+    }
+
+    [Fact]
+    public async Task Register_RejectsBurmeseCharactersInPassword()
+    {
+        await using var dbContext = CreateDbContext();
+        var service = CreateService(dbContext);
+
+        var result = await service.Register(new RegisterRequestDto
+        {
+            Name = "Ko Ko",
+            PhoneNumber = "0912345678",
+            Password = "စကားဝှက်၁၂၃!",
+            RoleId = 3
+        });
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("Password must contain English characters and symbols only.", result.Message);
+    }
+
+    [Fact]
+    public async Task Register_RejectsMyanmarDigitsInContactPhoneNumber()
+    {
+        await using var dbContext = CreateDbContext();
+        var service = CreateService(dbContext);
+
+        var result = await service.Register(new RegisterRequestDto
+        {
+            Name = "Ko Ko",
+            PhoneNumber = "0912345678",
+            ContactPhoneNumber = "၀၉၉၈၇၆၅၄၃၂",
+            Password = "Password123!",
+            RoleId = 3
+        });
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("Contact phone number must contain English digits only.", result.Message);
+    }
+
+    [Fact]
+    public async Task Register_AcceptsBurmeseNameAndEnglishCredentials()
+    {
+        await using var dbContext = CreateDbContext();
+        var service = CreateService(dbContext);
+
+        var result = await service.Register(new RegisterRequestDto
+        {
+            Name = "ဦးဉာဏ",
+            PhoneNumber = "0912345678",
+            Password = "Password123!",
+            RoleId = 3
+        });
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Register Successful", result.Message);
+    }
+
+    [Fact]
+    public async Task Login_RejectsMyanmarDigitsAndBurmesePassword()
+    {
+        await using var dbContext = CreateDbContext();
+        var service = CreateService(dbContext);
+
+        var phoneResult = await service.Login(new LoginRequestDto
+        {
+            PhoneNumber = "၀၉၁၂၃၄၅၆၇၈",
+            Password = "Password123!"
+        });
+        Assert.False(phoneResult.IsSuccess);
+        Assert.Equal("Phone number or password incorrect!", phoneResult.Message);
+
+        var passwordResult = await service.Login(new LoginRequestDto
+        {
+            PhoneNumber = "0912345678",
+            Password = "စကားဝှက်၁၂၃!"
+        });
+        Assert.False(passwordResult.IsSuccess);
+        Assert.Equal("Phone number or password incorrect!", passwordResult.Message);
+    }
+
     private static AppDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
