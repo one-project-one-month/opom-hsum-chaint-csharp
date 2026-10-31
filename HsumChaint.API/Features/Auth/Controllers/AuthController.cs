@@ -6,6 +6,8 @@ using HsumChaint.Domain.Features.Auth.ServiceInterfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using HsumChaint.Database.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace HsumChaint.API.Features.Auth.Controllers
 {
@@ -22,8 +24,11 @@ namespace HsumChaint.API.Features.Auth.Controllers
 
         #region Register
         [HttpPost("register")]
-        public async Task<IActionResult> Register(RegisterRequestDto reqModel)
+        public async Task<IActionResult> Register(RegisterRequestDto reqModel, [FromServices] AppDbContext db)
         {
+            var publicRole = await db.Roles.AnyAsync(role => role.Id == reqModel.RoleId && !role.IsDeleted
+                && (role.Name == "User" || role.Name == "Monk" || role.Name == "Donor"));
+            if (!publicRole) return Forbid();
             var registerResponse = await _authService.Register(reqModel);
             
             return registerResponse.ToActionResult();
