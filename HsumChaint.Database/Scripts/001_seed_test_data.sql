@@ -31,6 +31,7 @@ INSERT INTO `Permission` (name, is_deleted) VALUES
     ('Donation.Review', 0),
     ('Donation.Schedule', 0),
     ('Donation.Cancel', 0),
+    ('Donation.Delete', 0),
     ('Users.Update', 0),
     ('Invitation.View', 0),
     ('Invitation.Respond', 0),
