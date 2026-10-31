@@ -1,12 +1,20 @@
 # HsumChaint_CSharp
 
+## Admin web portal
+
+The Next.js SSR admin portal is included in this repository at [HsumChaint.Admin](HsumChaint.Admin/README.md) and appears as a solution folder in `HsumChaint.slnx`. It runs as a separate Node.js application and calls the C# API from the server. The .NET solution and backend Docker image continue to build only the C# services.
+
+Run the API with `dotnet run --project HsumChaint.API --launch-profile http`. In `HsumChaint.Admin`, run `npm ci`, configure `.env.local` from `.env.example` with a generated `SESSION_SECRET`, then run `npm run dev`. Open http://127.0.0.1:3000. See the portal README for workflow coverage, verification, and the opt-in real MySQL end-to-end suite.
+
+Existing local databases should apply `HsumChaint.Database/Scripts/002_admin_donation_delete_permission.sql` once and sign in again to receive the `Donation.Delete` permission. This repair does not reseed user or donation records. Local environment files, test reports, build output, and `SECRETS.md` remain untracked.
+
 ## Dynamic RBAC
 
 Users and monastery members now reference database roles by `RoleId`; login and refresh responses include `RoleId`, `RoleName`, and `Permissions`. Monastery responses include `CurrentUserRoleId` and `CurrentUserRoleName`. Invitations and member responses include `RoleId` and `RoleName`. The mobile app migration is deferred.
 
 API policies require exact `permission` claims in JWTs. Admin has no authorization bypass: seed role 1 with all active permissions. The Admin role cannot be deleted, renamed, or have permissions removed through role management. Permission changes appear in new login or refresh tokens; existing JWT claims remain valid until token expiry. Monastery operations also enforce membership and owner/member-role permissions.
 
-Role management endpoints are `/api/v1/roles`, `/api/v1/roles/{id}`, `/api/v1/roles/assign-permissions`, and `/api/v1/permissions`. Reading requires `Roles.View`, creating/updating/deleting roles requires `Roles.Manage`, and assigning permissions requires `Roles.Assign`. Registration now requires `Roles.Assign` because its request selects the user role. User updates require both `Users.Manage` and `Roles.Assign`. Registration returns the response envelope without echoing the password.
+Role management endpoints are `/api/v1/roles`, `/api/v1/roles/{id}`, `/api/v1/roles/assign-permissions`, and `/api/v1/permissions`. Reading requires `Roles.View`, creating/updating/deleting roles requires `Roles.Manage`, and assigning permissions requires `Roles.Assign`. Public registration is restricted to active User/Monk/Donor roles; privileged account creation uses the authenticated system Admin endpoint `/api/v1/admin/users`. User updates require both `Users.Manage` and `Roles.Assign`. Registration returns the response envelope without echoing the password.
 
 For a fresh local database, run `000_create_local_database.sql` followed by `001_seed_test_data.sql`. The seed Admin login is `09100000002` / `Passw0rd!`. Existing databases must have the role/permission schema, `User.role_id`, and `Monastery_Member.role_id`/`is_owner` columns before seeding; the bootstrap script does not migrate existing tables. `Invitation.role` stores a role ID.
 

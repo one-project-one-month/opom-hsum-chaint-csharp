@@ -23,3 +23,5 @@ LICENSE
 README.md
 **/SECRETS.md
 HsumChaint.Flutter/
+# The Next.js portal runs separately; exclude its builds and local environment files.
+HsumChaint.Admin/
