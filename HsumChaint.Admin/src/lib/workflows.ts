@@ -1,0 +1,5 @@
+export type Option = { value: string; label: string };
+export type Field = { name: string; label: string; type?: 'text' | 'number' | 'email' | 'tel' | 'password' | 'textarea' | 'select' | 'permissions' | 'datetime-local' | 'date' | 'time'; required?: boolean; value?: string | number; options?: Option[]; selected?: number[]; min?: number; max?: number; hint?: string };
+export type Operation = 'donation.create' | 'donation.batch' | 'donation.recurring' | 'donation.review' | 'donation.schedule' | 'donation.complete' | 'donation.cancel' | 'donation.delete' | 'user.create' | 'user.update' | 'user.delete' | 'user.settings' | 'user.profile' | 'user.profileDelete' | 'role.create' | 'role.update' | 'role.delete' | 'spaceRole.create' | 'spaceRole.update' | 'spaceRole.delete' | 'monastery.create' | 'monastery.update' | 'monastery.delete' | 'member.role' | 'member.remove' | 'invitation.create' | 'invitation.respond' | 'invitation.revoke' | 'notification.create' | 'notification.read' | 'notification.delete' | 'notification.readAll' | 'notification.clearAll';
+export type MutationState = { error?: string; success?: boolean };
+

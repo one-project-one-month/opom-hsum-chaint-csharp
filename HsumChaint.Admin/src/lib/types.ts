@@ -1,0 +1,15 @@
+export type Envelope<T> = { isSuccess: boolean; message: string; data: T; pagination?: Pagination };
+export type Pagination = { pageNumber: number; pageSize: number; totalCount: number; totalPages: number; hasNextPage: boolean; hasPreviousPage: boolean };
+export type Login = { id: number; roleId: number; roleName: string; permissions: string[]; accessToken: string; refreshToken: string };
+export type User = { id: number; name: string | null; phoneNumber: string; email: string | null; roleName: string; roleId: number; contactPhoneNumber?: string | null };
+export type Summary = { donations: number; pendingReview: number; completed: number; monasteries: number; users: number };
+export type Donation = { id: number; donorName: string | null; monasteryName: string | null; monasterySpaceId: number | null; donationType: number; customDonationType: string | null; amount: number | null; quantity: number | null; status: number; note: string | null; createdAt: string | null; pickupTime: string | null; dropoffTime: string | null };
+export type Monastery = { id: number; monasteryName: string | null; description: string | null; address: string | null; createdById: number | null };
+export type Role = { id: number; name: string; permissions: { id: number; name: string }[] };
+export type SpaceRole = Role & { description?: string | null };
+export type Member = { id: number; userId: number; userName: string; phoneNumber: string; spaceRoleId: number; spaceRoleName: string; isOwner: boolean };
+export type Invitation = { id: number; monasterySpaceId: number; monasteryName: string; invitedUserId: number; invitedById: number; userName: string; spaceRoleName: string; status: number; createdAt: string | null };
+export type Notification = { id: number; userId: number; userName: string; type: number; message: string; isRead: boolean; createdAt: string | null };
+export const statuses = ['Draft', 'Submitted', 'PendingReview', 'Accepted', 'Scheduled', 'Completed', 'Rejected', 'Cancelled'];
+export const statusLabels = ['မူကြမ်း', 'တင်သွင်းပြီး', 'စိစစ်ရန်', 'လက်ခံပြီး', 'အချိန်သတ်မှတ်ပြီး', 'ပြီးစီး', 'ငြင်းပယ်ပြီး', 'ပယ်ဖျက်ပြီး'];
+export const donationTypes = ['ငွေ', 'ဆွမ်း / အစားအစာ', 'ဆေးဝါး', 'သင်္ကန်း', 'အသုံးအဆောင်', 'အခြား'];

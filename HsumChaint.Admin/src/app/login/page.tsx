@@ -1,0 +1,7 @@
+import { HandHeart, ShieldCheck } from 'lucide-react';
+import { LoginForm } from '@/components/login-form';
+export const metadata = { title: 'အကောင့်ဝင်ရန်' };
+export default async function Login({ searchParams }: { searchParams: Promise<{ reason?: string }> }) {
+  const { reason } = await searchParams;
+  return <main className="login-page"><section className="login-story"><a className="brand" href="/login"><span className="brand-mark"><HandHeart /></span><span>ဆွမ်းဂျိုင့်<small>HSUM CHAINT</small></span></a><div className="login-copy"><span className="eyebrow">အလှူနှင့် သဒ္ဓါတရားကို ချိတ်ဆက်ပေးခြင်း</span><h1>ကောင်းမှုတိုင်းကို<br />စနစ်တကျ စီမံကြမယ်။</h1><p>အလှူမှတ်တမ်းများ၊ ကျောင်းတိုက်များနှင့် အသုံးပြုသူများကို တစ်နေရာတည်းမှ စီမံကြည့်ရှုပါ။</p><div className="story-rule" /><span className="story-caption">HsumChaint Administration</span></div><span className="login-footer">ဆွမ်းဂျိုင့် · System Admin Portal</span></section><section className="login-panel"><div className="login-box"><span className="login-shield"><ShieldCheck size={24} /></span><p className="eyebrow text-brand">SYSTEM ADMIN</p><h2>ပြန်လည်ကြိုဆိုပါတယ်</h2><p className="muted login-description">စီမံခန့်ခွဲရန် သင့်အကောင့်ဖြင့် ဝင်ရောက်ပါ။</p>{reason && <p role="status" className="notice">{reason === 'role' ? 'System Admin အကောင့် လိုအပ်ပါသည်။' : 'ဝင်ရောက်ချိန် သက်တမ်းကုန်ပါပြီ။ ပြန်ဝင်ပါ။'}</p>}<LoginForm /><p className="login-note"><ShieldCheck size={15} />ခွင့်ပြုထားသော စီမံခန့်ခွဲသူများအတွက်သာ</p></div></section></main>;
+}
