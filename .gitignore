@@ -6,3 +6,6 @@ obj/
 .env
 
 firebase_config.json
+
+# Local credentials
+SECRETS.md

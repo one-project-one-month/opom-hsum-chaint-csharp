@@ -92,6 +92,8 @@ namespace HsumChaint.Domain.Features.Donation.DTOs
 
     public class CreateRecurringDonationRequestDto
     {
+        // Optional for backward compatibility; existing clients use UTC (zero).
+        public int TimeZoneOffsetMinutes { get; set; }
         public int MonasterySpaceId { get; set; }
         public DonationType DonationType { get; set; }
         public string? CustomDonationType { get; set; }

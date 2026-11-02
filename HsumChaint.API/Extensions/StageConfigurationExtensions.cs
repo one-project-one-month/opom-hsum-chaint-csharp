@@ -28,6 +28,8 @@ public static class StageConfigurationExtensions
             builder.Configuration.AddJsonFile(customSettingsPath, optional: true, reloadOnChange: true);
         }
 
+        // Keep deployment environment overrides above the stage JSON files.
+        builder.Configuration.AddEnvironmentVariables();
         builder.Configuration["Stage"] = stage;
         return builder;
     }

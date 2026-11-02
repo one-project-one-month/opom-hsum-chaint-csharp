@@ -89,7 +89,7 @@ namespace HsumChaint.Domain.Features.Monastery.Services
             }
             await _dbContext.SaveChangesAsync();
 
-            return Result<MonasterySpaceDto>.Success(MapMonastery(monastery, member!.SpaceRoleId, member.SpaceRole?.Name, member.IsOwner == true), "Monastery updated successfully.");
+            return Result<MonasterySpaceDto>.Success(MapMonastery(monastery, member?.SpaceRoleId, member?.SpaceRole?.Name, member?.IsOwner == true), "Monastery updated successfully.");
         }
 
         public Task<Result<MonasterySpaceDto>> UpdateMonastery(int currentUserId, int monasterySpaceId, UpdateMonasteryRequestDto request)
@@ -244,6 +244,9 @@ namespace HsumChaint.Domain.Features.Monastery.Services
         public async Task<Result<InvitationResponseDto>> InviteMember(int currentUserId, InviteMemberRequestDto request)
         {
             var monasterySpaceId = request.MonasterySpaceId;
+            if (!await ActiveMonasteries.AnyAsync(m => m.Id == monasterySpaceId))
+                return Result<InvitationResponseDto>.Failure("Monastery not found.");
+
             var inviter = await GetMember(currentUserId, monasterySpaceId);
 
             if (!await HasPermissionTo(currentUserId, inviter, SpacePermissions.SpaceInviteMember))

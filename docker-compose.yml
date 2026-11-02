@@ -11,7 +11,7 @@ services:
       - ConnectionStrings__DefaultConnection=Server=db;Database=${MYSQL_DATABASE:-hsumchaint_db};User=${MYSQL_USER:-root};Password=${MYSQL_PASSWORD:-sasa1234};
 
   db:
-    image: mysql:8.0
+    image: mysql:8.0.44
     ports:
       - "3307:3306"
     environment:

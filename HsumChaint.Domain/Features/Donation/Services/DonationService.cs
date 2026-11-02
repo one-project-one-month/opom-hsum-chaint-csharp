@@ -70,7 +70,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
             }
 
             var member = await GetMember(currentUserId, request.MonasterySpaceId);
-            if (!await CanManageDonations(member))
+            if (!await IsSystemAdmin(currentUserId) && !await CanManageDonations(member))
             {
                 return Result<DonationDto>.Failure("User is not authorized to create manual donations for this monastery.");
             }
@@ -136,8 +136,10 @@ namespace HsumChaint.Domain.Features.Donation.Services
 
             if (query.MonasterySpaceId.HasValue)
             {
+                if (!await _dbContext.MonasterySpaces.AnyAsync(m => m.Id == query.MonasterySpaceId.Value && !m.IsDeleted))
+                    return PagedResult<DonationDto>.Failure("Monastery not found.");
                 var member = await GetMember(currentUserId, query.MonasterySpaceId.Value);
-                if (member == null)
+                if (member == null && !await IsSystemAdmin(currentUserId))
                 {
                     return PagedResult<DonationDto>.Failure("User is not a member of this monastery.");
                 }
@@ -146,12 +148,12 @@ namespace HsumChaint.Domain.Features.Donation.Services
             }
             else
             {
-                donations = donations.Where(x => x.DonorId == currentUserId);
+                if (!await IsSystemAdmin(currentUserId)) donations = donations.Where(x => x.DonorId == currentUserId);
             }
 
             if (query.DonorId.HasValue)
             {
-                if (!query.MonasterySpaceId.HasValue && query.DonorId.Value != currentUserId)
+                if (!query.MonasterySpaceId.HasValue && query.DonorId.Value != currentUserId && !await IsSystemAdmin(currentUserId))
                 {
                     return PagedResult<DonationDto>.Failure("User is not authorized to view this donor history.");
                 }
@@ -226,7 +228,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
             }
 
             var member = await GetMember(currentUserId, donation.MonasterySpaceId ?? 0);
-            if (!await CanManageDonations(member))
+            if (!await IsSystemAdmin(currentUserId) && !await CanManageDonations(member))
             {
                 return Result<DonationDto>.Failure("User is not authorized to review this donation.");
             }
@@ -270,7 +272,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
             }
 
             var member = await GetMember(currentUserId, donation.MonasterySpaceId ?? 0);
-            if (!await CanScheduleDonations(member))
+            if (!await IsSystemAdmin(currentUserId) && !await CanScheduleDonations(member))
             {
                 return Result<DonationDto>.Failure("User is not authorized to schedule this donation.");
             }
@@ -308,7 +310,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
             }
 
             var member = await GetMember(currentUserId, donation.MonasterySpaceId ?? 0);
-            if (!await CanScheduleDonations(member))
+            if (!await IsSystemAdmin(currentUserId) && !await CanScheduleDonations(member))
             {
                 return Result<DonationDto>.Failure("User is not authorized to complete this donation.");
             }
@@ -345,7 +347,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
             }
 
             var member = await GetMember(currentUserId, donation.MonasterySpaceId ?? 0);
-            if (donation.DonorId != currentUserId && !await CanManageDonations(member))
+            if (donation.DonorId != currentUserId && !await IsSystemAdmin(currentUserId) && !await CanManageDonations(member))
             {
                 return Result<DonationDto>.Failure("User is not authorized to cancel this donation.");
             }
@@ -385,7 +387,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
             }
 
             var member = await GetMember(currentUserId, request.MonasterySpaceId);
-            if (!await CanManageDonations(member))
+            if (!await IsSystemAdmin(currentUserId) && !await CanManageDonations(member))
             {
                 return Result<List<DonationDto>>.Failure("User is not authorized to create donations for this monastery.");
             }
@@ -482,8 +484,8 @@ namespace HsumChaint.Domain.Features.Donation.Services
                 var clampedDay = Math.Min(request.DayOfMonth, DateTime.DaysInMonth(targetMonth.Year, targetMonth.Month));
                 var targetDate = new DateTime(targetMonth.Year, targetMonth.Month, clampedDay, 0, 0, 0, DateTimeKind.Utc);
 
-                DateTime? pickup = request.PickupTimeOfDay.HasValue ? targetDate.Add(request.PickupTimeOfDay.Value) : null;
-                DateTime? dropoff = request.DropoffTimeOfDay.HasValue ? targetDate.Add(request.DropoffTimeOfDay.Value) : null;
+                DateTime? pickup = request.PickupTimeOfDay.HasValue ? targetDate.Add(request.PickupTimeOfDay.Value).AddMinutes(-request.TimeZoneOffsetMinutes) : null;
+                DateTime? dropoff = request.DropoffTimeOfDay.HasValue ? targetDate.Add(request.DropoffTimeOfDay.Value).AddMinutes(-request.TimeZoneOffsetMinutes) : null;
 
                 var seriesNote = string.IsNullOrWhiteSpace(request.Note)
                     ? $"[Series: {seriesTag}] ({i + 1}/{request.MonthsCount})"
@@ -528,7 +530,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
             }
 
             var member = await GetMember(currentUserId, request.MonasterySpaceId);
-            if (!await CanManageDonations(member))
+            if (!await IsSystemAdmin(currentUserId) && !await CanManageDonations(member))
             {
                 return Result<List<DonationDto>>.Failure("User is not authorized to create manual donations for this monastery.");
             }
@@ -557,8 +559,8 @@ namespace HsumChaint.Domain.Features.Donation.Services
                 var clampedDay = Math.Min(request.DayOfMonth, DateTime.DaysInMonth(targetMonth.Year, targetMonth.Month));
                 var targetDate = new DateTime(targetMonth.Year, targetMonth.Month, clampedDay, 0, 0, 0, DateTimeKind.Utc);
 
-                DateTime? pickup = request.PickupTimeOfDay.HasValue ? targetDate.Add(request.PickupTimeOfDay.Value) : null;
-                DateTime? dropoff = request.DropoffTimeOfDay.HasValue ? targetDate.Add(request.DropoffTimeOfDay.Value) : null;
+                DateTime? pickup = request.PickupTimeOfDay.HasValue ? targetDate.Add(request.PickupTimeOfDay.Value).AddMinutes(-request.TimeZoneOffsetMinutes) : null;
+                DateTime? dropoff = request.DropoffTimeOfDay.HasValue ? targetDate.Add(request.DropoffTimeOfDay.Value).AddMinutes(-request.TimeZoneOffsetMinutes) : null;
 
                 var initialStatus = pickup.HasValue || dropoff.HasValue ? DonationStatus.Scheduled : DonationStatus.Accepted;
 
@@ -615,7 +617,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
             }
 
             var member = await GetMember(currentUserId, donation.MonasterySpaceId ?? 0);
-            if (!await CanManageDonations(member))
+            if (!await IsSystemAdmin(currentUserId) && !await CanManageDonations(member))
             {
                 return Result<bool>.Failure("User is not authorized to delete donations in this monastery.");
             }
@@ -650,8 +652,10 @@ namespace HsumChaint.Domain.Features.Donation.Services
 
             if (query.MonasterySpaceId.HasValue)
             {
+                if (!await _dbContext.MonasterySpaces.AnyAsync(m => m.Id == query.MonasterySpaceId.Value && !m.IsDeleted))
+                    return Result<MonthlyDonationSummaryDto>.Failure("Monastery not found.");
                 var member = await GetMember(currentUserId, query.MonasterySpaceId.Value);
-                if (member == null)
+                if (member == null && !await IsSystemAdmin(currentUserId))
                 {
                     return Result<MonthlyDonationSummaryDto>.Failure("User is not a member of this monastery.");
                 }
@@ -659,7 +663,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
             }
             else
             {
-                donationsQuery = donationsQuery.Where(x => x.DonorId == currentUserId);
+                if (!await IsSystemAdmin(currentUserId)) donationsQuery = donationsQuery.Where(x => x.DonorId == currentUserId);
             }
 
             if (query.Status.HasValue)
@@ -705,6 +709,13 @@ namespace HsumChaint.Domain.Features.Donation.Services
 
         private async Task<string?> ValidateRecurringRequest(CreateRecurringDonationRequestDto request)
         {
+            if (request.StartDate.Year < 2000 || request.StartDate.Year > 2100)
+                return "Start date must be between 2000 and 2100.";
+
+            if (request.PickupTimeOfDay < TimeSpan.Zero || request.PickupTimeOfDay >= TimeSpan.FromDays(1)
+                || request.DropoffTimeOfDay < TimeSpan.Zero || request.DropoffTimeOfDay >= TimeSpan.FromDays(1))
+                return "Pickup and dropoff times must be within a calendar day.";
+
             if (request.MonasterySpaceId <= 0)
                 return "Monastery space id is required.";
 
@@ -714,6 +725,15 @@ namespace HsumChaint.Domain.Features.Donation.Services
 
             if (request.DayOfMonth < 1 || request.DayOfMonth > 31)
                 return "Day of month must be between 1 and 31.";
+
+            if (request.TimeZoneOffsetMinutes < -840 || request.TimeZoneOffsetMinutes > 840)
+                return "Invalid time zone offset.";
+
+            if (request.Amount < 0 || request.Quantity < 0)
+                return "Donation amount and quantity cannot be negative.";
+
+            if (!Enum.IsDefined(request.DonationType))
+                return "Invalid donation type.";
 
             if (request.MonthsCount < 1 || request.MonthsCount > 24)
                 return "Months count must be between 1 and 24.";
@@ -755,9 +775,11 @@ namespace HsumChaint.Domain.Features.Donation.Services
             return null;
         }
 
+        private Task<bool> IsSystemAdmin(int userId) => _dbContext.Users.AnyAsync(u => u.Id == userId && u.IsDeleted == false && u.Role != null && !u.Role.IsDeleted && u.Role.Name == "Admin");
+
         private async Task<bool> CanViewDonation(int currentUserId, DonationEntity donation)
         {
-            if (donation.DonorId == currentUserId)
+            if (donation.DonorId == currentUserId || await IsSystemAdmin(currentUserId))
             {
                 return true;
             }

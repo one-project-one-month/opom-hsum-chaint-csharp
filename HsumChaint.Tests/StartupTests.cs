@@ -142,7 +142,7 @@ public class StartupTests
         Assert.Equal(HsumChaint.Shared.Authorization.Permissions.All.Count, pagination.GetProperty("totalCount").GetInt32());
         Assert.Equal(System.Net.HttpStatusCode.BadRequest, (await client.GetAsync("/api/User?pageNumber=0")).StatusCode);
         Assert.Equal(System.Net.HttpStatusCode.NotFound, (await client.GetAsync("/api/User/999")).StatusCode);
-        Assert.Equal(System.Net.HttpStatusCode.Forbidden, (await client.GetAsync("/api/v1/donations?monasterySpaceId=999")).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, (await client.GetAsync("/api/v1/donations?monasterySpaceId=999")).StatusCode);
         var create = await System.Net.Http.Json.HttpClientJsonExtensions.PostAsJsonAsync(client, "/api/v1/roles",
             new { Name = "Custom API Reviewer", PermissionIds = new[] { 13 } });
         Assert.Equal(System.Net.HttpStatusCode.OK, create.StatusCode);
@@ -150,7 +150,7 @@ public class StartupTests
     }
 
     [Fact]
-    public async Task Rbac_AdminWithoutPermissionMapping_IsForbidden_AndRegistrationIsAllowedForAnonymous()
+    public async Task Rbac_AdminWithoutPermissionMapping_IsForbidden_AndPublicRegistrationRejectsAdminRole()
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -163,7 +163,10 @@ public class StartupTests
         using var client = _factory.CreateClient(new() { BaseAddress = new Uri("https://localhost") });
         var anonymousRegister = await System.Net.Http.Json.HttpClientJsonExtensions.PostAsJsonAsync(client, "/api/v1/auth/register",
             new { Name = "Self Admin", PhoneNumber = "092", Password = "Passw0rd!", RoleId = 1 });
-        Assert.Equal(System.Net.HttpStatusCode.OK, anonymousRegister.StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.Forbidden, anonymousRegister.StatusCode);
+        var publicRegister = await System.Net.Http.Json.HttpClientJsonExtensions.PostAsJsonAsync(client, "/api/v1/auth/register",
+            new { Name = "Public User", PhoneNumber = "093", Password = "Passw0rd!", RoleId = 3 });
+        Assert.Equal(System.Net.HttpStatusCode.OK, publicRegister.StatusCode);
         var login = await System.Net.Http.Json.HttpClientJsonExtensions.PostAsJsonAsync(client, "/api/v1/auth/login",
             new { PhoneNumber = "091", Password = "Passw0rd!" });
         var response = await System.Net.Http.Json.HttpContentJsonExtensions.ReadFromJsonAsync<HsumChaint.Shared.Result<HsumChaint.Domain.Features.Auth.DTOs.LoginResponseDto>>(login.Content);

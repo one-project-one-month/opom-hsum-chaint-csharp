@@ -1,0 +1,16 @@
+import { adminApi } from '@/lib/session';
+import { allRows, options } from '@/lib/options';
+import { pageNumber, type SearchParams } from '@/lib/params';
+import type { Notification, User } from '@/lib/types';
+import { date } from '@/lib/utils';
+import { WorkflowDialog } from '@/components/workflow-dialog';
+import { PageHead, Pager, Empty } from '@/components/page-parts';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableHeader, TableHead, TableRow, TableBody, TableCell } from '@/components/ui/table';
+export const metadata = { title: 'အသိပေးချက်များ' };
+export default async function Notifications({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const page = pageNumber((await searchParams).page);
+  const [result, users] = await Promise.all([adminApi<Notification[]>(`/api/v1/admin/notifications?PageNumber=${page}&PageSize=10`), allRows<User>('/api/User')]);
+  return <><PageHead title="အသိပေးချက်များ" description="အသုံးပြုသူများ၏ database အသိပေးချက်များကို စီမံရန်" action={<div className="head-actions"><WorkflowDialog operation="notification.clearAll" title="အသိပေးချက်အားလုံး ဖျက်ရန်" label="အားလုံးဖျက်ရန်" description="အသုံးပြုသူအားလုံး၏ အသိပေးချက်များကို ရပ်ဆိုင်းမည်။" destructive /><WorkflowDialog operation="notification.readAll" title="အားလုံး ဖတ်ပြီးအဖြစ် သတ်မှတ်ရန်" label="အားလုံး ဖတ်ပြီး" description="အသုံးပြုသူအားလုံး၏ အသိပေးချက်များကို ဖတ်ပြီးအဖြစ် သတ်မှတ်မည်။" /><WorkflowDialog operation="notification.create" title="အသိပေးချက် ဖန်တီးရန်" description="ရွေးချယ်ထားသော အသုံးပြုသူအတွက် database အသိပေးချက် ဖန်တီးမည်။ Push notification မပို့ပါ။" fields={[{ name: 'userId', label: 'အသုံးပြုသူ', type: 'select', required: true, options: options(users, u => `${u.name} · ${u.phoneNumber}`) }, { name: 'type', label: 'အသိပေးချက်အမျိုးအစား', type: 'select', required: true, options: ['Invitation', 'Donation', 'System', 'Hsum Chaint'].map((label, i) => ({ value: String(i), label })) }, { name: 'message', label: 'အသိပေးစာ', type: 'textarea', required: true }]} /></div>} /><Card className="data-panel">{result.data.length ? <Table><TableHeader><TableRow><TableHead>အသုံးပြုသူ</TableHead><TableHead>အသိပေးစာ</TableHead><TableHead>ရက်စွဲ</TableHead><TableHead>အခြေအနေ</TableHead><TableHead>လုပ်ဆောင်ချက်</TableHead></TableRow></TableHeader><TableBody>{result.data.map(n => <TableRow key={n.id}><TableCell>{n.userName || `#${n.userId}`}</TableCell><TableCell className="whitespace-normal min-w-60 max-w-96">{n.message}<span className="cell-sub">{['Invitation', 'Donation', 'System', 'Hsum Chaint'][n.type]}</span></TableCell><TableCell>{date(n.createdAt)}</TableCell><TableCell><Badge variant="secondary">{n.isRead ? 'ဖတ်ပြီး' : 'မဖတ်ရသေး'}</Badge></TableCell><TableCell><div className="row-actions">{!n.isRead && <WorkflowDialog operation="notification.read" id={n.id} title={`အသိပေးချက် #${n.id} ဖတ်ပြီးအဖြစ် သတ်မှတ်ရန်`} label="ဖတ်ပြီး" />}<WorkflowDialog operation="notification.delete" id={n.id} title={`အသိပေးချက် #${n.id} ဖျက်ရန်`} label="ဖျက်ရန်" destructive /></div></TableCell></TableRow>)}</TableBody></Table> : <Empty />}<Pager path="/notifications" pagination={result.pagination} /></Card></>;
+}

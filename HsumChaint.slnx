@@ -1,4 +1,10 @@
 <Solution>
+  <Folder Name="/HsumChaint.Admin/">
+    <File Path="HsumChaint.Admin/README.md" />
+    <File Path="HsumChaint.Admin/package.json" />
+    <File Path="HsumChaint.Admin/next.config.ts" />
+    <File Path="HsumChaint.Admin/.env.example" />
+  </Folder>
   <Folder Name="/Solution Items/">
     <File Path=".dockerignore" />
     <File Path=".env" />
