@@ -9,12 +9,12 @@ using NotificationEntity = HsumChaint.Database.Models.Notification;
 
 namespace HsumChaint.Domain.Features.Notification.Services
 {
-    public class NotificationServices : INotificationService
+    public class NotificationService : INotificationService
     {
         private readonly AppDbContext _dbContext;
         private readonly IFirebaseNotificationProvider _notificationProvider;
 
-        public NotificationServices(AppDbContext dbContext, IFirebaseNotificationProvider notificationProvider)
+        public NotificationService(AppDbContext dbContext, IFirebaseNotificationProvider notificationProvider)
         {
             _dbContext = dbContext;
             _notificationProvider = notificationProvider;
@@ -39,12 +39,12 @@ namespace HsumChaint.Domain.Features.Notification.Services
                 #endregion
 
                 #region Update Database
-                if (notification.IsDelete == true)
+                if (notification.IsDeleted == true)
                 {
                     return Result<DeleteNotificationResponseDto>.Success(MapDeleteResponse(notification), "Notification is already deleted.");
                 }
 
-                notification.IsDelete = true;
+                notification.IsDeleted = true;
 
                 _dbContext.Notifications.Update(notification);
                 await _dbContext.SaveChangesAsync();
@@ -148,7 +148,7 @@ namespace HsumChaint.Domain.Features.Notification.Services
                 Type = ResolveNotificationType(request.NotificationType),
                 Message = request.Message,
                 IsRead = false,
-                IsDelete = false,
+                IsDeleted = false,
                 CreatedAt = DateTime.UtcNow
             };
         }
@@ -178,7 +178,7 @@ namespace HsumChaint.Domain.Features.Notification.Services
             return new DeleteNotificationResponseDto
             {
                 NotificationId = notification.Id,
-                IsDeleted = notification.IsDelete ?? false
+                IsDeleted = notification.IsDeleted ?? false
             };
         }
 

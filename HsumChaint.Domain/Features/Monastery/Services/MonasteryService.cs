@@ -30,8 +30,8 @@ namespace HsumChaint.Domain.Features.Monastery.Services
                 return Result<MonasterySpaceDto>.Failure("User or active role not found.");
             }
 
-            if (!string.Equals(creator.Role.Name, "Monk", StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(creator.Role.Name, "Admin", StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(creator.Role.Name, SystemRoles.Monk, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(creator.Role.Name, SystemRoles.Admin, StringComparison.OrdinalIgnoreCase))
             {
                 return Result<MonasterySpaceDto>.Failure("Only monks can create a monastery space.");
             }
@@ -554,7 +554,7 @@ namespace HsumChaint.Domain.Features.Monastery.Services
                 Type = type,
                 Message = message,
                 IsRead = false,
-                IsDelete = false,
+                IsDeleted = false,
                 CreatedAt = DateTime.UtcNow
             });
         }
@@ -567,14 +567,14 @@ namespace HsumChaint.Domain.Features.Monastery.Services
             }
 
             var user = await _dbContext.Users.Include(u => u.Role).AsNoTracking().FirstOrDefaultAsync(u => u.Id == currentUserId && u.IsDeleted == false);
-            return user?.Role != null && !user.Role.IsDeleted && string.Equals(user.Role.Name, "Admin", StringComparison.OrdinalIgnoreCase);
+            return user?.Role != null && !user.Role.IsDeleted && string.Equals(user.Role.Name, SystemRoles.Admin, StringComparison.OrdinalIgnoreCase);
         }
 
         private async Task<bool> CanDeleteMonastery(MonasteryMember? member)
         {
             if (member == null || member.IsOwner != true) return false;
             var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == member.UserId && u.IsDeleted != true);
-            return user != null && (user.RoleId == 1 || user.RoleId == 2);
+            return user != null && (user.RoleId == SystemRoles.AdminId || user.RoleId == SystemRoles.MonkId);
         }
 
         private static MonasterySpaceDto MapMonastery(MonasterySpace monastery, int? roleId, string? roleName, bool isOwner)
@@ -617,7 +617,7 @@ namespace HsumChaint.Domain.Features.Monastery.Services
 
             var member = await GetMember(currentUserId, monasterySpaceId);
             var user = await _dbContext.Users.Include(u => u.Role).AsNoTracking().FirstOrDefaultAsync(u => u.Id == currentUserId && u.IsDeleted == false);
-            var isSystemAdmin = user?.Role != null && !user.Role.IsDeleted && string.Equals(user.Role.Name, "Admin", StringComparison.OrdinalIgnoreCase);
+            var isSystemAdmin = user?.Role != null && !user.Role.IsDeleted && string.Equals(user.Role.Name, SystemRoles.Admin, StringComparison.OrdinalIgnoreCase);
 
             if (member == null && !isSystemAdmin)
             {
@@ -669,7 +669,7 @@ namespace HsumChaint.Domain.Features.Monastery.Services
 
             var member = await GetMember(currentUserId, monasterySpaceId);
             var user = await _dbContext.Users.Include(u => u.Role).AsNoTracking().FirstOrDefaultAsync(u => u.Id == currentUserId && u.IsDeleted == false);
-            var isSystemAdmin = user?.Role != null && !user.Role.IsDeleted && string.Equals(user.Role.Name, "Admin", StringComparison.OrdinalIgnoreCase);
+            var isSystemAdmin = user?.Role != null && !user.Role.IsDeleted && string.Equals(user.Role.Name, SystemRoles.Admin, StringComparison.OrdinalIgnoreCase);
 
             if (member == null && !isSystemAdmin)
             {

@@ -8,6 +8,7 @@ using HsumChaint.Shared.CommonEnum;
 using Microsoft.EntityFrameworkCore;
 using DonationEntity = HsumChaint.Database.Models.DonorList;
 using NotificationEntity = HsumChaint.Database.Models.Notification;
+using UserEntity = HsumChaint.Database.Models.User;
 
 namespace HsumChaint.Domain.Features.Donation.Services
 {
@@ -386,11 +387,28 @@ namespace HsumChaint.Domain.Features.Donation.Services
                 return Result<List<DonationDto>>.Failure("Batch size cannot exceed 50 donations.");
             }
 
+            var monasteryExists = await _dbContext.MonasterySpaces.AnyAsync(x => x.Id == request.MonasterySpaceId && !x.IsDeleted);
+            if (!monasteryExists)
+            {
+                return Result<List<DonationDto>>.Failure("Monastery not found.");
+            }
+
             var member = await GetMember(currentUserId, request.MonasterySpaceId);
             if (!await IsSystemAdmin(currentUserId) && !await CanManageDonations(member))
             {
                 return Result<List<DonationDto>>.Failure("User is not authorized to create donations for this monastery.");
             }
+
+            // Pre-fetch all specified donors in a single query to eliminate N+1 DB round-trips
+            var donorIds = request.Donations
+                .Where(x => x.DonorId.HasValue)
+                .Select(x => x.DonorId!.Value)
+                .Distinct()
+                .ToList();
+
+            var donorsById = await _dbContext.Users
+                .Where(x => donorIds.Contains(x.Id) && x.IsDeleted == false)
+                .ToDictionaryAsync(x => x.Id);
 
             var entities = new List<DonationEntity>();
             var now = DateTime.UtcNow;
@@ -398,19 +416,19 @@ namespace HsumChaint.Domain.Features.Donation.Services
             foreach (var item in request.Donations)
             {
                 item.MonasterySpaceId = request.MonasterySpaceId;
-                var validation = await ValidateDonationRequest(item);
-                if (validation != null)
+                var fieldError = ValidateDonationFields(item);
+                if (fieldError != null)
                 {
-                    return Result<List<DonationDto>>.Failure(validation.Message);
+                    return Result<List<DonationDto>>.Failure(fieldError);
                 }
 
-                var donor = item.DonorId.HasValue
-                    ? await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == item.DonorId.Value && x.IsDeleted == false)
-                    : null;
-
-                if (item.DonorId.HasValue && donor == null)
+                UserEntity? donor = null;
+                if (item.DonorId.HasValue)
                 {
-                    return Result<List<DonationDto>>.Failure($"Donor user with id {item.DonorId.Value} not found.");
+                    if (!donorsById.TryGetValue(item.DonorId.Value, out donor))
+                    {
+                        return Result<List<DonationDto>>.Failure($"Donor user with id {item.DonorId.Value} not found.");
+                    }
                 }
 
                 if (!item.DonorId.HasValue && string.IsNullOrWhiteSpace(item.DonorName))
@@ -448,11 +466,44 @@ namespace HsumChaint.Domain.Features.Donation.Services
             await _dbContext.DonorLists.AddRangeAsync(entities);
             await _dbContext.SaveChangesAsync();
 
-            foreach (var d in entities)
+            // Batch notify donors without running loop DB calls
+            var donorDonations = entities.Where(d => d.DonorId.HasValue).ToList();
+            if (donorDonations.Count > 0)
             {
-                if (d.DonorId.HasValue)
+                var distinctDonorIds = donorDonations.Select(d => d.DonorId!.Value).Distinct().ToList();
+                var activeDonors = await _dbContext.Users.AsNoTracking()
+                    .Where(u => distinctDonorIds.Contains(u.Id) && u.IsDeleted == false)
+                    .ToDictionaryAsync(u => u.Id);
+
+                var batchNotifications = donorDonations
+                    .Where(d => activeDonors.ContainsKey(d.DonorId!.Value))
+                    .Select(d => new NotificationEntity
+                    {
+                        UserId = d.DonorId!.Value,
+                        Type = NotificationType.Donation,
+                        Message = "Your donation has been recorded by the monastery.",
+                        IsRead = false,
+                        IsDeleted = false,
+                        CreatedAt = now
+                    }).ToList();
+
+                await _dbContext.Notifications.AddRangeAsync(batchNotifications);
+                await _dbContext.SaveChangesAsync();
+
+                foreach (var d in donorDonations)
                 {
-                    await NotifyUser(d.DonorId.Value, "Your donation has been recorded by the monastery.", d.Id);
+                    if (activeDonors.TryGetValue(d.DonorId!.Value, out var donorUser) && !string.IsNullOrWhiteSpace(donorUser.FcmToken))
+                    {
+                        await _notificationProvider.SendPushAsync(
+                            donorUser.FcmToken,
+                            "Donation Update",
+                            "Your donation has been recorded by the monastery.",
+                            new Dictionary<string, string>
+                            {
+                                { "donationId", d.Id.ToString() },
+                                { "type", NotificationType.Donation.ToString() }
+                            });
+                    }
                 }
             }
 
@@ -744,6 +795,26 @@ namespace HsumChaint.Domain.Features.Donation.Services
             return null;
         }
 
+        private static string? ValidateDonationFields(CreateDonationRequestDto request)
+        {
+            if (request.DonationType == DonationType.Other && string.IsNullOrWhiteSpace(request.CustomDonationType))
+            {
+                return "Custom donation type is required when donation type is Other.";
+            }
+
+            if (request.Amount.HasValue && request.Amount.Value < 0)
+            {
+                return "Donation amount cannot be negative.";
+            }
+
+            if (request.Quantity.HasValue && request.Quantity.Value < 0)
+            {
+                return "Donation quantity cannot be negative.";
+            }
+
+            return null;
+        }
+
         private async Task<Result<DonationDto>?> ValidateDonationRequest(CreateDonationRequestDto request)
         {
             if (request.MonasterySpaceId <= 0)
@@ -757,25 +828,16 @@ namespace HsumChaint.Domain.Features.Donation.Services
                 return Result<DonationDto>.Failure("Monastery not found.");
             }
 
-            if (request.DonationType == DonationType.Other && string.IsNullOrWhiteSpace(request.CustomDonationType))
+            var fieldError = ValidateDonationFields(request);
+            if (fieldError != null)
             {
-                return Result<DonationDto>.Failure("Custom donation type is required when donation type is Other.");
-            }
-
-            if (request.Amount.HasValue && request.Amount.Value < 0)
-            {
-                return Result<DonationDto>.Failure("Donation amount cannot be negative.");
-            }
-
-            if (request.Quantity.HasValue && request.Quantity.Value < 0)
-            {
-                return Result<DonationDto>.Failure("Donation quantity cannot be negative.");
+                return Result<DonationDto>.Failure(fieldError);
             }
 
             return null;
         }
 
-        private Task<bool> IsSystemAdmin(int userId) => _dbContext.Users.AnyAsync(u => u.Id == userId && u.IsDeleted == false && u.Role != null && !u.Role.IsDeleted && u.Role.Name == "Admin");
+        private Task<bool> IsSystemAdmin(int userId) => _dbContext.Users.AnyAsync(u => u.Id == userId && u.IsDeleted == false && u.Role != null && !u.Role.IsDeleted && u.Role.Name == SystemRoles.Admin);
 
         private async Task<bool> CanViewDonation(int currentUserId, DonationEntity donation)
         {
@@ -804,42 +866,52 @@ namespace HsumChaint.Domain.Features.Donation.Services
                 .Select(x => x!.Value)
                 .ToListAsync();
 
-            foreach (var managerId in managerIds)
-            {
-                await NotifyUser(managerId, message, donationId);
-            }
+            await NotifyUsers(managerIds, message, donationId);
         }
 
-        private async Task NotifyUser(int userId, string message, int donationId)
-        {
-            var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == userId && x.IsDeleted == false);
-            if (user == null)
-            {
-                return;
-            }
+        private Task NotifyUser(int userId, string message, int donationId) =>
+            NotifyUsers([userId], message, donationId);
 
-            await _dbContext.Notifications.AddAsync(new NotificationEntity
+        private async Task NotifyUsers(IEnumerable<int> userIds, string message, int donationId)
+        {
+            var distinctUserIds = userIds.Distinct().ToList();
+            if (distinctUserIds.Count == 0) return;
+
+            var users = await _dbContext.Users
+                .AsNoTracking()
+                .Where(x => distinctUserIds.Contains(x.Id) && x.IsDeleted == false)
+                .ToListAsync();
+
+            if (users.Count == 0) return;
+
+            var now = DateTime.UtcNow;
+            var notifications = users.Select(u => new NotificationEntity
             {
-                UserId = userId,
+                UserId = u.Id,
                 Type = NotificationType.Donation,
                 Message = message,
                 IsRead = false,
-                IsDelete = false,
-                CreatedAt = DateTime.UtcNow
-            });
+                IsDeleted = false,
+                CreatedAt = now
+            }).ToList();
+
+            await _dbContext.Notifications.AddRangeAsync(notifications);
             await _dbContext.SaveChangesAsync();
 
-            if (!string.IsNullOrWhiteSpace(user.FcmToken))
+            foreach (var user in users)
             {
-                await _notificationProvider.SendPushAsync(
-                    user.FcmToken,
-                    "Donation Update",
-                    message,
-                    new Dictionary<string, string>
-                    {
-                        { "donationId", donationId.ToString() },
-                        { "type", NotificationType.Donation.ToString() }
-                    });
+                if (!string.IsNullOrWhiteSpace(user.FcmToken))
+                {
+                    await _notificationProvider.SendPushAsync(
+                        user.FcmToken,
+                        "Donation Update",
+                        message,
+                        new Dictionary<string, string>
+                        {
+                            { "donationId", donationId.ToString() },
+                            { "type", NotificationType.Donation.ToString() }
+                        });
+                }
             }
         }
 

@@ -22,7 +22,7 @@ public static class DependencyInjectionExtensions
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IRolePermissionService, RolePermissionService>();
         services.AddScoped<IUserService, UserService>();
-        services.AddScoped<INotificationService, NotificationServices>();
+        services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IMonasteryService, MonasteryService>();
         services.AddScoped<IDonationService, DonationService>();
         services.AddScoped<IFirebaseNotificationProvider, FirebaseNotificationProvider>();
