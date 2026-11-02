@@ -140,7 +140,7 @@ public class RolePermissionService(AppDbContext db) : IRolePermissionService
         return required.Concat(role.RolePermissions.Where(rp => !rp.IsDeleted && !rp.Permission.IsDeleted).Select(rp => rp.PermissionId)).Except(ids).Any();
     }
 
-    private static bool IsAdmin(Role role) => role.Id == 1 || string.Equals(role.Name, "Admin", StringComparison.OrdinalIgnoreCase);
+    private static bool IsAdmin(Role role) => role.Id == SystemRoles.AdminId || string.Equals(role.Name, SystemRoles.Admin, StringComparison.OrdinalIgnoreCase);
 
     private static void ReplacePermissions(Role role, List<int> ids)
     {

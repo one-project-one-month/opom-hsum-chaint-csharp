@@ -1,4 +1,5 @@
 using HsumChaint.Shared;
+using HsumChaint.Shared.Authorization;
 using HsumChaint.Database.Models;
 using HsumChaint.Domain.Features.Auth.DTOs;
 using HsumChaint.Domain.Features.Auth.ServiceInterfaces;
@@ -90,7 +91,7 @@ namespace HsumChaint.Domain.Features.Auth.Services
                 await _dbContext.SaveChangesAsync();
 
                 // Create a profile for the selected Monk role.
-                if (selectedRole.Name == "Monk")
+                if (selectedRole.Name == SystemRoles.Monk)
                 {
                     await _dbContext.MonkProfiles.AddAsync(new MonkProfile
                     {
@@ -251,14 +252,14 @@ namespace HsumChaint.Domain.Features.Auth.Services
                 await _dbContext.RefreshTokens.AddAsync(new RefreshToken
                 {
                     UserId = reqModel.UserId,
-                    RefreshToken1 = hashedRefreshToken,
+                    TokenHash = hashedRefreshToken,
                     ExpiresAt = reqModel.ExpiresAt,
                     CreatedAt = DateTime.UtcNow
                 });
             }
             else
             {
-                existingRefreshToken.RefreshToken1 = hashedRefreshToken;
+                existingRefreshToken.TokenHash = hashedRefreshToken;
                 existingRefreshToken.ExpiresAt = reqModel.ExpiresAt;
                 existingRefreshToken.RevokedAt = null;
             }
@@ -292,7 +293,7 @@ namespace HsumChaint.Domain.Features.Auth.Services
             var tokenModel = await _dbContext.RefreshTokens
                 .FirstOrDefaultAsync(x => x.UserId == userId);
 
-            if (tokenModel == null || tokenModel.RefreshToken1 != hashedRefreshToken || tokenModel.ExpiresAt <= DateTime.UtcNow || tokenModel.RevokedAt != null)
+            if (tokenModel == null || tokenModel.TokenHash != hashedRefreshToken || tokenModel.ExpiresAt <= DateTime.UtcNow || tokenModel.RevokedAt != null)
                 return false;
 
             return true;

@@ -1,4 +1,5 @@
 using HsumChaint.Shared;
+using HsumChaint.Shared.Authorization;
 using HsumChaint.Database.Models;
 using HsumChaint.Domain.Features.User.DTOs;
 using HsumChaint.Domain.Features.User.ServiceInterfaces;
@@ -212,7 +213,7 @@ namespace HsumChaint.Domain.Features.User.Services
             {
                 var notifications = await _context.Notifications
                     .Where(n => n.UserId == id && n.IsDeleted == false).ToListAsync();
-                foreach (var notification in notifications) notification.IsDelete = true;
+                foreach (var notification in notifications) notification.IsDeleted = true;
                 await _context.SaveChangesAsync();
                 return Result.Success("User notifications deleted successfully.");
             }
@@ -235,7 +236,7 @@ namespace HsumChaint.Domain.Features.User.Services
                     return Result<MonkProfileDto>.Failure("User not found.");
                 }
 
-                if (targetUser.Role == null || !string.Equals(targetUser.Role.Name, "Monk", StringComparison.OrdinalIgnoreCase))
+                if (targetUser.Role == null || !string.Equals(targetUser.Role.Name, SystemRoles.Monk, StringComparison.OrdinalIgnoreCase))
                 {
                     return Result<MonkProfileDto>.Failure("User is not a monk.");
                 }
@@ -273,7 +274,7 @@ namespace HsumChaint.Domain.Features.User.Services
                     return Result<MonkProfileDto>.Failure("User not found.");
                 }
 
-                if (targetUser.Role == null || !string.Equals(targetUser.Role.Name, "Monk", StringComparison.OrdinalIgnoreCase))
+                if (targetUser.Role == null || !string.Equals(targetUser.Role.Name, SystemRoles.Monk, StringComparison.OrdinalIgnoreCase))
                 {
                     return Result<MonkProfileDto>.Failure("User is not a monk.");
                 }
@@ -331,7 +332,7 @@ namespace HsumChaint.Domain.Features.User.Services
                     return Result.Failure("User not found.");
                 }
 
-                if (targetUser.Role == null || !string.Equals(targetUser.Role.Name, "Monk", StringComparison.OrdinalIgnoreCase))
+                if (targetUser.Role == null || !string.Equals(targetUser.Role.Name, SystemRoles.Monk, StringComparison.OrdinalIgnoreCase))
                 {
                     return Result.Failure("User is not a monk.");
                 }
