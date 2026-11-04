@@ -1,4 +1,5 @@
 
+using HsumChaint.Shared;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -45,6 +46,11 @@ namespace HsumChaint.Domain.Features.User.DTOs
         public int Id { get; set; }
         public int PageNumber { get; set; } = 1;
         public int PageSize { get; set; } = 10;
+    }
+
+    public class GetUserNotificationsFeedRequestDto : CursorPaginationRequest
+    {
+        public int Id { get; set; }
     }
 
     public class DeleteUserNotificationsRequestDto

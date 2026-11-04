@@ -207,6 +207,42 @@ namespace HsumChaint.Domain.Features.User.Services
             }
         }
 
+        public async Task<CursorPagedResult<NotificationDto>> GetUserNotificationFeed(int id, CursorPaginationRequest? pagination = null)
+        {
+            var pageSize = pagination?.PageSize ?? 15;
+            if (pageSize < 1) pageSize = 15;
+
+            try
+            {
+                var query = _context.Notifications.AsNoTracking().Where(n => n.UserId == id && n.IsDeleted == false);
+
+                if (pagination?.LastId.HasValue == true && pagination.LastId.Value > 0)
+                {
+                    query = query.Where(x => x.Id > pagination.LastId.Value);
+                }
+
+                var items = await query.OrderBy(x => x.Id)
+                    .Take(pageSize + 1)
+                    .ToListAsync();
+
+                var hasNextPage = items.Count > pageSize;
+                if (hasNextPage)
+                {
+                    items.RemoveAt(pageSize);
+                }
+
+                var data = items.Select(MapNotification).ToList();
+                var nextCursor = hasNextPage ? data.Last().Id : (int?)null;
+                var resultPagination = new CursorPagination(nextCursor, hasNextPage, pageSize);
+
+                return CursorPagedResult<NotificationDto>.Success(data, resultPagination, "Successfully Retrieved User's Notification Feed");
+            }
+            catch (Exception ex)
+            {
+                return CursorPagedResult<NotificationDto>.Failure($"Application Layer Exception: {ex.Message}");
+            }
+        }
+
         public async Task<Result> DeleteUserNotificationList(int id)
         {
             try
@@ -533,6 +569,8 @@ namespace HsumChaint.Domain.Features.User.Services
             GetInvitedByOtherList(request.Id, new PaginationRequest { PageNumber = request.PageNumber, PageSize = request.PageSize });
         public Task<PagedResult<NotificationDto>> GetUserNotificationList(GetUserNotificationsRequestDto request) =>
             GetUserNotificationList(request.Id, new PaginationRequest { PageNumber = request.PageNumber, PageSize = request.PageSize });
+        public Task<CursorPagedResult<NotificationDto>> GetUserNotificationFeed(GetUserNotificationsFeedRequestDto request) =>
+            GetUserNotificationFeed(request.Id, new CursorPaginationRequest { LastId = request.LastId, PageSize = request.PageSize });
         public Task<Result> DeleteUserNotificationList(DeleteUserNotificationsRequestDto request) =>
             DeleteUserNotificationList(request.Id);
         public Task<Result<MonkProfileDto>> GetMonkProfile(int currentUserId, GetMonkProfileRequestDto request) =>

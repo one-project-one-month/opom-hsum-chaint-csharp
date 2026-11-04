@@ -154,6 +154,27 @@ namespace HsumChaint.API.Features.User.Controllers
             return notificationList.ToActionResult();
         }
 
+        // GET Notification Feed for user (Mobile Cursor)
+        [HttpGet("{id}/notification/feed")]
+        [HasPermission(Permissions.Notification.View)]
+        public async Task<IActionResult> GetUserNotificationFeed(int id, [FromQuery] CursorPaginationRequest pagination)
+        {
+            if (!CanAccessUserResource(id))
+            {
+                return Forbid();
+            }
+
+            var request = new GetUserNotificationsFeedRequestDto
+            {
+                Id = id,
+                LastId = pagination?.LastId,
+                PageSize = pagination?.PageSize ?? 15
+            };
+            var notificationFeed = await _userService.GetUserNotificationFeed(request);
+
+            return notificationFeed.ToActionResult();
+        }
+
         // DELETE Notification List for user
         [HttpDelete("{id}/notification")]
         [HasPermission(Permissions.Notification.Manage)]

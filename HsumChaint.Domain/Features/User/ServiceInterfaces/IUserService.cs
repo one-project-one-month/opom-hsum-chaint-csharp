@@ -12,6 +12,7 @@ namespace HsumChaint.Domain.Features.User.ServiceInterfaces
         Task<PagedResult<InvitationDto>> GetUserInvitationList(GetUserInvitationsRequestDto request);
         Task<PagedResult<InvitationDto>> GetInvitedByOtherList(GetInvitedByOtherRequestDto request);
         Task<PagedResult<NotificationDto>> GetUserNotificationList(GetUserNotificationsRequestDto request);
+        Task<CursorPagedResult<NotificationDto>> GetUserNotificationFeed(GetUserNotificationsFeedRequestDto request);
         Task<Result> DeleteUserNotificationList(DeleteUserNotificationsRequestDto request);
         Task<Result<MonkProfileDto>> GetMonkProfile(int currentUserId, GetMonkProfileRequestDto request);
         Task<Result<MonkProfileDto>> UpdateMonkProfile(int currentUserId, UpdateMonkProfileRequestDto request);
