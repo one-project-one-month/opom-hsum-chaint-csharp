@@ -260,11 +260,6 @@ namespace HsumChaint.Domain.Features.Donation.Services
             return CursorPagedResult<DonationDto>.Success(list, pagination, "Donations feed retrieved successfully.");
         }
 
-        public Task<Result<DonationDto>> GetDonation(int currentUserId, GetDonationRequestDto request)
-        {
-            return GetDonation(currentUserId, request.Id);
-        }
-
         public async Task<Result<DonationDto>> GetDonation(int currentUserId, int donationId)
         {
             var donation = await _dbContext.DonorLists.AsNoTracking().FirstOrDefaultAsync(x => x.Id == donationId);
@@ -279,11 +274,6 @@ namespace HsumChaint.Domain.Features.Donation.Services
             }
 
             return Result<DonationDto>.Success(MapDonation(donation), "Donation retrieved successfully.");
-        }
-
-        public Task<Result<DonationDto>> ReviewDonation(int currentUserId, ReviewDonationRequestDto request)
-        {
-            return ReviewDonation(currentUserId, request.Id, request);
         }
 
         public async Task<Result<DonationDto>> ReviewDonation(int currentUserId, int donationId, ReviewDonationRequestDto request)
@@ -325,11 +315,6 @@ namespace HsumChaint.Domain.Features.Donation.Services
             return Result<DonationDto>.Success(MapDonation(donation), "Donation reviewed successfully.");
         }
 
-        public Task<Result<DonationDto>> ScheduleDonation(int currentUserId, ScheduleDonationRequestDto request)
-        {
-            return ScheduleDonation(currentUserId, request.Id, request);
-        }
-
         public async Task<Result<DonationDto>> ScheduleDonation(int currentUserId, int donationId, ScheduleDonationRequestDto request)
         {
             if (!request.PickupTime.HasValue && !request.DropoffTime.HasValue)
@@ -368,11 +353,6 @@ namespace HsumChaint.Domain.Features.Donation.Services
             return Result<DonationDto>.Success(MapDonation(donation), "Donation scheduled successfully.");
         }
 
-        public Task<Result<DonationDto>> CompleteDonation(int currentUserId, CompleteDonationRequestDto request)
-        {
-            return CompleteDonation(currentUserId, request.Id);
-        }
-
         public async Task<Result<DonationDto>> CompleteDonation(int currentUserId, int donationId)
         {
             var donation = await _dbContext.DonorLists.FindAsync(donationId);
@@ -403,11 +383,6 @@ namespace HsumChaint.Domain.Features.Donation.Services
             }
 
             return Result<DonationDto>.Success(MapDonation(donation), "Donation completed successfully.");
-        }
-
-        public Task<Result<DonationDto>> CancelDonation(int currentUserId, CancelDonationRequestDto request)
-        {
-            return CancelDonation(currentUserId, request.Id);
         }
 
         public async Task<Result<DonationDto>> CancelDonation(int currentUserId, int donationId)
@@ -723,11 +698,6 @@ namespace HsumChaint.Domain.Features.Donation.Services
 
             var resultList = entities.Select(MapDonation).ToList();
             return Result<List<DonationDto>>.Success(resultList, $"Recurring donation series of {resultList.Count} donations created successfully.");
-        }
-
-        public Task<Result<bool>> DeleteDonation(int currentUserId, DeleteDonationRequestDto request)
-        {
-            return DeleteDonation(currentUserId, request.Id);
         }
 
         public async Task<Result<bool>> DeleteDonation(int currentUserId, int donationId)
