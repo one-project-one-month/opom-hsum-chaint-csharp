@@ -34,6 +34,11 @@ namespace HsumChaint.Domain.Features.User.DTOs
         public int PageSize { get; set; } = 10;
     }
 
+    public class GetUserInvitationsFeedRequestDto : CursorPaginationRequest
+    {
+        public int Id { get; set; }
+    }
+
     public class GetInvitedByOtherRequestDto
     {
         public int Id { get; set; }

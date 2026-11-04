@@ -267,4 +267,56 @@ public class CursorPaginationServiceTests
         Assert.False(second.Pagination.HasNextPage);
         Assert.Null(second.Pagination.NextCursor);
     }
+
+    [Fact]
+    public async Task InvitationsFeed_ReturnsUserInvitationsWithCursor()
+    {
+        await using var db = Context();
+        for (var id = 1; id <= 5; id++)
+        {
+            db.Invitations.Add(new Invitation
+            {
+                Id = id,
+                InvitedUserId = 10,
+                MonasterySpaceId = 1,
+                SpaceRoleId = 4,
+                Status = 0
+            });
+        }
+        db.Invitations.Add(new Invitation
+        {
+            Id = 6,
+            InvitedUserId = 99, // other user
+            MonasterySpaceId = 1,
+            SpaceRoleId = 4,
+            Status = 0
+        });
+        await db.SaveChangesAsync();
+
+        var service = new UserService(db);
+
+        var first = await service.GetUserInvitationFeed(new GetUserInvitationsFeedRequestDto
+        {
+            Id = 10,
+            LastId = null,
+            PageSize = 3
+        });
+        Assert.True(first.IsSuccess);
+        Assert.Equal(3, first.Data.Count);
+        Assert.Equal(new[] { 1, 2, 3 }, first.Data.Select(x => x.Id));
+        Assert.True(first.Pagination.HasNextPage);
+        Assert.Equal(3, first.Pagination.NextCursor);
+
+        var second = await service.GetUserInvitationFeed(new GetUserInvitationsFeedRequestDto
+        {
+            Id = 10,
+            LastId = 3,
+            PageSize = 3
+        });
+        Assert.True(second.IsSuccess);
+        Assert.Equal(2, second.Data.Count);
+        Assert.Equal(new[] { 4, 5 }, second.Data.Select(x => x.Id));
+        Assert.False(second.Pagination.HasNextPage);
+        Assert.Null(second.Pagination.NextCursor);
+    }
 }

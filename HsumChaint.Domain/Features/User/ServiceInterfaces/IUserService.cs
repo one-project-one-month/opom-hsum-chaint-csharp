@@ -10,6 +10,7 @@ namespace HsumChaint.Domain.Features.User.ServiceInterfaces
         Task<Result> PutUser(UserDto user);
         Task<Result> DeleteUser(DeleteUserRequestDto request);
         Task<PagedResult<InvitationDto>> GetUserInvitationList(GetUserInvitationsRequestDto request);
+        Task<CursorPagedResult<InvitationDto>> GetUserInvitationFeed(GetUserInvitationsFeedRequestDto request);
         Task<PagedResult<InvitationDto>> GetInvitedByOtherList(GetInvitedByOtherRequestDto request);
         Task<PagedResult<NotificationDto>> GetUserNotificationList(GetUserNotificationsRequestDto request);
         Task<CursorPagedResult<NotificationDto>> GetUserNotificationFeed(GetUserNotificationsFeedRequestDto request);

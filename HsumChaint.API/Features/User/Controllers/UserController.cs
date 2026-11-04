@@ -108,6 +108,27 @@ namespace HsumChaint.API.Features.User.Controllers
             return invitationList.ToActionResult();
         }
 
+        // GET Invitations Feed received by user (Mobile Cursor Pagination)
+        [HttpGet("{id}/invitations/feed")]
+        [HasPermission(Permissions.Invitation.View)]
+        public async Task<IActionResult> GetUserInvitationFeed(int id, [FromQuery] CursorPaginationRequest pagination)
+        {
+            if (!CanAccessUserResource(id))
+            {
+                return Forbid();
+            }
+
+            var request = new GetUserInvitationsFeedRequestDto
+            {
+                Id = id,
+                LastId = pagination.LastId,
+                PageSize = pagination.PageSize
+            };
+            var invitationFeed = await _userService.GetUserInvitationFeed(request);
+
+            return invitationFeed.ToActionResult();
+        }
+
         // GET List of Invitations sent by user
         [HttpGet("{id}/invited-by-list")]
         [HasPermission(Permissions.Invitation.View)]

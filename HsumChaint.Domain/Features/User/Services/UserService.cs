@@ -147,6 +147,48 @@ namespace HsumChaint.Domain.Features.User.Services
             }
         }
 
+        public async Task<CursorPagedResult<InvitationDto>> GetUserInvitationFeed(int id, CursorPaginationRequest? pagination = null)
+        {
+            var pageSize = pagination?.PageSize ?? 15;
+            if (pageSize < 1) pageSize = 15;
+
+            try
+            {
+                var query = _context.Invitations
+                    .Include(i => i.SpaceRole)
+                    .Include(i => i.MonasterySpace)
+                    .Include(i => i.InvitedBy)
+                    .Include(i => i.InvitedUser)
+                    .AsNoTracking()
+                    .Where(i => i.InvitedUserId == id);
+
+                if (pagination?.LastId.HasValue == true && pagination.LastId.Value > 0)
+                {
+                    query = query.Where(x => x.Id > pagination.LastId.Value);
+                }
+
+                var items = await query.OrderBy(x => x.Id)
+                    .Take(pageSize + 1)
+                    .ToListAsync();
+
+                var hasNextPage = items.Count > pageSize;
+                if (hasNextPage)
+                {
+                    items.RemoveAt(pageSize);
+                }
+
+                var data = items.Select(MapInvitation).ToList();
+                var nextCursor = hasNextPage ? data.Last().Id : (int?)null;
+                var resultPagination = new CursorPagination(nextCursor, hasNextPage, pageSize);
+
+                return CursorPagedResult<InvitationDto>.Success(data, resultPagination, "Successfully Retrieved User's Invitation Feed");
+            }
+            catch (Exception ex)
+            {
+                return CursorPagedResult<InvitationDto>.Failure($"Application Layer Exception: {ex.Message}");
+            }
+        }
+
         public async Task<PagedResult<InvitationDto>> GetInvitedByOtherList(int id, PaginationRequest? pagination = null)
         {
             var pageNumber = pagination?.PageNumber ?? 1;
@@ -565,6 +607,8 @@ namespace HsumChaint.Domain.Features.User.Services
         public Task<Result> DeleteUser(DeleteUserRequestDto request) => DeleteUser(request.Id);
         public Task<PagedResult<InvitationDto>> GetUserInvitationList(GetUserInvitationsRequestDto request) =>
             GetUserInvitationList(request.Id, new PaginationRequest { PageNumber = request.PageNumber, PageSize = request.PageSize });
+        public Task<CursorPagedResult<InvitationDto>> GetUserInvitationFeed(GetUserInvitationsFeedRequestDto request) =>
+            GetUserInvitationFeed(request.Id, new CursorPaginationRequest { LastId = request.LastId, PageSize = request.PageSize });
         public Task<PagedResult<InvitationDto>> GetInvitedByOtherList(GetInvitedByOtherRequestDto request) =>
             GetInvitedByOtherList(request.Id, new PaginationRequest { PageNumber = request.PageNumber, PageSize = request.PageSize });
         public Task<PagedResult<NotificationDto>> GetUserNotificationList(GetUserNotificationsRequestDto request) =>
