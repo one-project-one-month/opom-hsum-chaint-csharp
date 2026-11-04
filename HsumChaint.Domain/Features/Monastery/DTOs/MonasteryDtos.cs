@@ -1,3 +1,4 @@
+using HsumChaint.Shared;
 using HsumChaint.Shared.CommonEnum;
 
 namespace HsumChaint.Domain.Features.Monastery.DTOs
@@ -13,6 +14,11 @@ namespace HsumChaint.Domain.Features.Monastery.DTOs
         public string? Keyword { get; set; }
         public int PageNumber { get; set; } = 1;
         public int PageSize { get; set; } = 10;
+    }
+
+    public class SearchMonasteriesFeedRequestDto : CursorPaginationRequest
+    {
+        public string? Keyword { get; set; }
     }
 
     public class GetMonasteryRequestDto

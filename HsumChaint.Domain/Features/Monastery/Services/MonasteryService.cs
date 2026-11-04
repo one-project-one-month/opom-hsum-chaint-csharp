@@ -241,6 +241,122 @@ namespace HsumChaint.Domain.Features.Monastery.Services
             return PagedResult<MonasterySpaceDto>.Success(monasteries, new Pagination(pageNumber, pageSize, totalCount), "Monasteries retrieved successfully.");
         }
 
+        public async Task<CursorPagedResult<MonasterySpaceDto>> GetMonasteriesFeed(CursorPaginationRequest request)
+        {
+            var pageSize = request.PageSize < 1 ? 15 : request.PageSize;
+
+            var query = ActiveMonasteries.AsNoTracking();
+            if (request.LastId.HasValue && request.LastId.Value > 0)
+            {
+                query = query.Where(x => x.Id > request.LastId.Value);
+            }
+
+            var items = await query.OrderBy(x => x.Id)
+                .Take(pageSize + 1)
+                .Select(x => new MonasterySpaceDto
+                {
+                    Id = x.Id,
+                    MonasteryName = x.MonasteryName,
+                    Description = x.Description,
+                    Address = x.Address,
+                    CreatedById = x.CreatedById
+                })
+                .ToListAsync();
+
+            var hasNextPage = items.Count > pageSize;
+            if (hasNextPage)
+            {
+                items.RemoveAt(pageSize);
+            }
+
+            var nextCursor = hasNextPage ? items.Last().Id : (int?)null;
+            var pagination = new CursorPagination(nextCursor, hasNextPage, pageSize);
+
+            return CursorPagedResult<MonasterySpaceDto>.Success(items, pagination, "Monasteries feed retrieved successfully.");
+        }
+
+        public async Task<CursorPagedResult<MonasterySpaceDto>> SearchMonasteriesFeed(SearchMonasteriesFeedRequestDto request)
+        {
+            var pageSize = request.PageSize < 1 ? 15 : request.PageSize;
+
+            var query = ActiveMonasteries.AsNoTracking();
+            if (!string.IsNullOrWhiteSpace(request.Keyword))
+            {
+                var term = request.Keyword.Trim();
+                query = query.Where(x => (x.MonasteryName != null && x.MonasteryName.Contains(term)) ||
+                                         (x.Address != null && x.Address.Contains(term)));
+            }
+
+            if (request.LastId.HasValue && request.LastId.Value > 0)
+            {
+                query = query.Where(x => x.Id > request.LastId.Value);
+            }
+
+            var items = await query.OrderBy(x => x.Id)
+                .Take(pageSize + 1)
+                .Select(x => new MonasterySpaceDto
+                {
+                    Id = x.Id,
+                    MonasteryName = x.MonasteryName,
+                    Description = x.Description,
+                    Address = x.Address,
+                    CreatedById = x.CreatedById
+                })
+                .ToListAsync();
+
+            var hasNextPage = items.Count > pageSize;
+            if (hasNextPage)
+            {
+                items.RemoveAt(pageSize);
+            }
+
+            var nextCursor = hasNextPage ? items.Last().Id : (int?)null;
+            var pagination = new CursorPagination(nextCursor, hasNextPage, pageSize);
+
+            return CursorPagedResult<MonasterySpaceDto>.Success(items, pagination, "Monasteries search feed retrieved successfully.");
+        }
+
+        public async Task<CursorPagedResult<MonasterySpaceDto>> GetMyMonasteriesFeed(int currentUserId, CursorPaginationRequest request)
+        {
+            var pageSize = request.PageSize < 1 ? 15 : request.PageSize;
+
+            var query = from member in _dbContext.MonasteryMembers.AsNoTracking()
+                        join monastery in ActiveMonasteries.AsNoTracking()
+                            on member.MonasterySpaceId equals monastery.Id
+                        where member.UserId == currentUserId
+                        select new MonasterySpaceDto
+                        {
+                            Id = monastery.Id,
+                            MonasteryName = monastery.MonasteryName,
+                            Description = monastery.Description,
+                            Address = monastery.Address,
+                            CreatedById = monastery.CreatedById,
+                            CurrentUserRoleId = member.SpaceRoleId,
+                            CurrentUserRoleName = member.SpaceRole != null ? member.SpaceRole.Name : null,
+                            IsOwner = member.IsOwner == true
+                        };
+
+            if (request.LastId.HasValue && request.LastId.Value > 0)
+            {
+                query = query.Where(x => x.Id > request.LastId.Value);
+            }
+
+            var items = await query.OrderBy(x => x.Id)
+                .Take(pageSize + 1)
+                .ToListAsync();
+
+            var hasNextPage = items.Count > pageSize;
+            if (hasNextPage)
+            {
+                items.RemoveAt(pageSize);
+            }
+
+            var nextCursor = hasNextPage ? items.Last().Id : (int?)null;
+            var pagination = new CursorPagination(nextCursor, hasNextPage, pageSize);
+
+            return CursorPagedResult<MonasterySpaceDto>.Success(items, pagination, "My monasteries feed retrieved successfully.");
+        }
+
         public async Task<Result<InvitationResponseDto>> InviteMember(int currentUserId, InviteMemberRequestDto request)
         {
             var monasterySpaceId = request.MonasterySpaceId;

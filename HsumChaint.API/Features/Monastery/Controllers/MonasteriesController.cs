@@ -30,10 +30,26 @@ namespace HsumChaint.API.Features.Monastery.Controllers
         }
 
         [AllowAnonymous]
+        [HttpGet("feed")]
+        public async Task<IActionResult> GetMonasteriesFeed([FromQuery] CursorPaginationRequest request)
+        {
+            var response = await _monasteryService.GetMonasteriesFeed(request ?? new CursorPaginationRequest());
+            return response.ToActionResult();
+        }
+
+        [AllowAnonymous]
         [HttpGet("search")]
         public async Task<IActionResult> SearchMonasteries([FromQuery] SearchMonasteriesRequestDto request)
         {
             var response = await _monasteryService.SearchMonasteries(request ?? new SearchMonasteriesRequestDto());
+            return response.ToActionResult();
+        }
+
+        [AllowAnonymous]
+        [HttpGet("search/feed")]
+        public async Task<IActionResult> SearchMonasteriesFeed([FromQuery] SearchMonasteriesFeedRequestDto request)
+        {
+            var response = await _monasteryService.SearchMonasteriesFeed(request ?? new SearchMonasteriesFeedRequestDto());
             return response.ToActionResult();
         }
 
@@ -61,6 +77,19 @@ namespace HsumChaint.API.Features.Monastery.Controllers
             }
 
             var response = await _monasteryService.GetMyMonasteries(currentUserId.Value, pagination);
+            return response.ToActionResult();
+        }
+
+        [HttpGet("mine/feed")]
+        public async Task<IActionResult> GetMineFeed([FromQuery] CursorPaginationRequest pagination)
+        {
+            var currentUserId = User.GetCurrentUserId();
+            if (!currentUserId.HasValue)
+            {
+                return Unauthorized();
+            }
+
+            var response = await _monasteryService.GetMyMonasteriesFeed(currentUserId.Value, pagination ?? new CursorPaginationRequest());
             return response.ToActionResult();
         }
 
