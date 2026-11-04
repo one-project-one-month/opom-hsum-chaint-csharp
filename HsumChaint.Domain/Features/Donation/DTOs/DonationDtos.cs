@@ -41,41 +41,28 @@ namespace HsumChaint.Domain.Features.Donation.DTOs
         public DateTime? CompletedAt { get; set; }
     }
 
-    public class GetDonationRequestDto
-    {
-        public int Id { get; set; }
-    }
-
     public class ReviewDonationRequestDto
     {
-        public int Id { get; set; }
         public DonationStatus Status { get; set; }
         public string? Note { get; set; }
     }
 
     public class ScheduleDonationRequestDto
     {
-        public int Id { get; set; }
         public DateTime? PickupTime { get; set; }
         public DateTime? DropoffTime { get; set; }
     }
 
-    public class CompleteDonationRequestDto
-    {
-        public int Id { get; set; }
-    }
-
-    public class CancelDonationRequestDto
-    {
-        public int Id { get; set; }
-    }
-
-    public class DeleteDonationRequestDto
-    {
-        public int Id { get; set; }
-    }
-
     public class DonationQueryDto : PaginationRequest
+    {
+        public int? MonasterySpaceId { get; set; }
+        public int? DonorId { get; set; }
+        public DonationStatus? Status { get; set; }
+        public DateTime? FromDate { get; set; }
+        public DateTime? ToDate { get; set; }
+    }
+
+    public class DonationFeedQueryDto : CursorPaginationRequest
     {
         public int? MonasterySpaceId { get; set; }
         public int? DonorId { get; set; }

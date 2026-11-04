@@ -221,6 +221,50 @@ public class DonationServiceTests
         Assert.Equal(DonationStatus.Cancelled, response.Data!.Status);
     }
 
+    [Fact]
+    public async Task CreateBatchManualDonations_CreatesMultipleDonationsAndBatchNotifiesDonors()
+    {
+        await using var db = CreateDbContext();
+        SeedUser(db, 1, "Owner", "091");
+        SeedUser(db, 2, "Donor A", "092", "fcm-token-a");
+        SeedUser(db, 3, "Donor B", "093", "fcm-token-b");
+        SeedMonastery(db, 10, 1);
+        await db.SaveChangesAsync();
+
+        var mockNotification = new Mock<IFirebaseNotificationProvider>();
+        var service = new DonationService(db, mockNotification.Object);
+
+        var request = new CreateBatchDonationRequestDto
+        {
+            MonasterySpaceId = 10,
+            Donations = new List<CreateManualDonationRequestDto>
+            {
+                new() { DonorId = 2, DonationType = DonationType.Money, Amount = 10000 },
+                new() { DonorId = 3, DonationType = DonationType.Food, Quantity = 5 },
+                new() { DonorName = "Walk-in Guest", DonationType = DonationType.Other, CustomDonationType = "Books", Quantity = 2 }
+            }
+        };
+
+        var response = await service.CreateBatchManualDonations(1, request);
+
+        Assert.True(response.IsSuccess);
+        Assert.Equal(3, response.Data!.Count);
+        Assert.Equal(3, await db.DonorLists.CountAsync());
+        Assert.Equal(2, await db.Notifications.CountAsync());
+
+        mockNotification.Verify(x => x.SendPushAsync(
+            "fcm-token-a",
+            "Donation Update",
+            It.IsAny<string?>(),
+            It.IsAny<Dictionary<string, string>>()), Times.Once);
+
+        mockNotification.Verify(x => x.SendPushAsync(
+            "fcm-token-b",
+            "Donation Update",
+            It.IsAny<string?>(),
+            It.IsAny<Dictionary<string, string>>()), Times.Once);
+    }
+
     private static AppDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()

@@ -23,19 +23,8 @@ public class CreateRoleRequestDto
     public List<int> PermissionIds { get; set; } = new();
 }
 
-public class GetRoleRequestDto
-{
-    public int Id { get; set; }
-}
-
-public class DeleteRoleRequestDto
-{
-    public int Id { get; set; }
-}
-
 public class UpdateRoleRequestDto : CreateRoleRequestDto
 {
-    public int Id { get; set; }
 }
 
 public class AssignRolePermissionsRequestDto
@@ -70,19 +59,8 @@ public class CreateSpaceRoleRequestDto
     public List<int> PermissionIds { get; set; } = new();
 }
 
-public class GetSpaceRoleRequestDto
-{
-    public int Id { get; set; }
-}
-
-public class DeleteSpaceRoleRequestDto
-{
-    public int Id { get; set; }
-}
-
 public class UpdateSpaceRoleRequestDto
 {
-    public int Id { get; set; }
     [Required, StringLength(50)]
     public string Name { get; set; } = string.Empty;
     [StringLength(255)]

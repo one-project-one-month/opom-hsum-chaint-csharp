@@ -62,6 +62,20 @@ namespace HsumChaint.API.Features.Donation.Controllers
             return response.ToActionResult();
         }
 
+        [HttpGet("feed")]
+        [HasPermission(Permissions.Donation.View)]
+        public async Task<IActionResult> GetDonationsFeed([FromQuery] DonationFeedQueryDto query)
+        {
+            var currentUserId = User.GetCurrentUserId();
+            if (!currentUserId.HasValue)
+            {
+                return Unauthorized();
+            }
+
+            var response = await _donationService.GetDonationsFeed(currentUserId.Value, query);
+            return response.ToActionResult();
+        }
+
         [HttpGet("{id}")]
         [HasPermission(Permissions.Donation.View)]
         public async Task<IActionResult> GetDonation(int id)
@@ -72,8 +86,7 @@ namespace HsumChaint.API.Features.Donation.Controllers
                 return Unauthorized();
             }
 
-            var request = new GetDonationRequestDto { Id = id };
-            var response = await _donationService.GetDonation(currentUserId.Value, request);
+            var response = await _donationService.GetDonation(currentUserId.Value, id);
             return response.ToActionResult();
         }
 
@@ -87,8 +100,7 @@ namespace HsumChaint.API.Features.Donation.Controllers
                 return Unauthorized();
             }
 
-            request.Id = id;
-            var response = await _donationService.ReviewDonation(currentUserId.Value, request);
+            var response = await _donationService.ReviewDonation(currentUserId.Value, id, request);
             return response.ToActionResult();
         }
 
@@ -102,8 +114,7 @@ namespace HsumChaint.API.Features.Donation.Controllers
                 return Unauthorized();
             }
 
-            request.Id = id;
-            var response = await _donationService.ScheduleDonation(currentUserId.Value, request);
+            var response = await _donationService.ScheduleDonation(currentUserId.Value, id, request);
             return response.ToActionResult();
         }
 
@@ -117,8 +128,7 @@ namespace HsumChaint.API.Features.Donation.Controllers
                 return Unauthorized();
             }
 
-            var request = new CompleteDonationRequestDto { Id = id };
-            var response = await _donationService.CompleteDonation(currentUserId.Value, request);
+            var response = await _donationService.CompleteDonation(currentUserId.Value, id);
             return response.ToActionResult();
         }
 
@@ -132,8 +142,7 @@ namespace HsumChaint.API.Features.Donation.Controllers
                 return Unauthorized();
             }
 
-            var request = new CancelDonationRequestDto { Id = id };
-            var response = await _donationService.CancelDonation(currentUserId.Value, request);
+            var response = await _donationService.CancelDonation(currentUserId.Value, id);
             return response.ToActionResult();
         }
 
@@ -189,8 +198,7 @@ namespace HsumChaint.API.Features.Donation.Controllers
                 return Unauthorized();
             }
 
-            var request = new DeleteDonationRequestDto { Id = id };
-            var response = await _donationService.DeleteDonation(currentUserId.Value, request);
+            var response = await _donationService.DeleteDonation(currentUserId.Value, id);
             return response.ToActionResult();
         }
 

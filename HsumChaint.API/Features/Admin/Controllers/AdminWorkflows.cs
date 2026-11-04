@@ -6,6 +6,7 @@ using HsumChaint.Domain.Features.Auth.ServiceInterfaces;
 using HsumChaint.Domain.Features.User.DTOs;
 using HsumChaint.Domain.Features.User.ServiceInterfaces;
 using HsumChaint.Shared;
+using HsumChaint.Shared.Authorization;
 using HsumChaint.Shared.CommonEnum;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -36,8 +37,8 @@ public partial class AdminController
             return BadRequest(Result.Failure("Phone number already exists."));
         if (id == User.GetCurrentUserId() && request.RoleId != existing.RoleId)
             return BadRequest(Result.Failure("You cannot change your own system role."));
-        if (existing.Role?.Name == "Admin" && request.RoleId != existing.RoleId
-            && await db.Users.CountAsync(u => u.IsDeleted == false && u.Role != null && u.Role.Name == "Admin" && !u.Role.IsDeleted) <= 1)
+        if (existing.Role?.Name == SystemRoles.Admin && request.RoleId != existing.RoleId
+            && await db.Users.CountAsync(u => u.IsDeleted == false && u.Role != null && u.Role.Name == SystemRoles.Admin && !u.Role.IsDeleted) <= 1)
             return BadRequest(Result.Failure("The last active Admin cannot be demoted."));
         request.Id = id;
         return (await service.PutUser(request)).ToActionResult();
@@ -49,7 +50,7 @@ public partial class AdminController
         if (id == User.GetCurrentUserId()) return BadRequest(Result.Failure("You cannot deactivate your own account."));
         if (await db.MonasteryMembers.AnyAsync(m => m.UserId == id && m.IsOwner == true && m.MonasterySpace != null && !m.MonasterySpace.IsDeleted))
             return BadRequest(Result.Failure("A monastery owner cannot be deactivated while owning an active monastery."));
-        return (await service.DeleteUser(new DeleteUserRequestDto { Id = id })).ToActionResult();
+        return (await service.DeleteUser(id)).ToActionResult();
     }
 
     [HttpGet("invitations")]

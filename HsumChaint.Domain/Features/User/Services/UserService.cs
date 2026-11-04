@@ -1,4 +1,5 @@
 using HsumChaint.Shared;
+using HsumChaint.Shared.Authorization;
 using HsumChaint.Database.Models;
 using HsumChaint.Domain.Features.User.DTOs;
 using HsumChaint.Domain.Features.User.ServiceInterfaces;
@@ -146,6 +147,48 @@ namespace HsumChaint.Domain.Features.User.Services
             }
         }
 
+        public async Task<CursorPagedResult<InvitationDto>> GetUserInvitationFeed(int id, CursorPaginationRequest? pagination = null)
+        {
+            var pageSize = pagination?.PageSize ?? 15;
+            if (pageSize < 1) pageSize = 15;
+
+            try
+            {
+                var query = _context.Invitations
+                    .Include(i => i.SpaceRole)
+                    .Include(i => i.MonasterySpace)
+                    .Include(i => i.InvitedBy)
+                    .Include(i => i.InvitedUser)
+                    .AsNoTracking()
+                    .Where(i => i.InvitedUserId == id);
+
+                if (pagination?.LastId.HasValue == true && pagination.LastId.Value > 0)
+                {
+                    query = query.Where(x => x.Id > pagination.LastId.Value);
+                }
+
+                var items = await query.OrderBy(x => x.Id)
+                    .Take(pageSize + 1)
+                    .ToListAsync();
+
+                var hasNextPage = items.Count > pageSize;
+                if (hasNextPage)
+                {
+                    items.RemoveAt(pageSize);
+                }
+
+                var data = items.Select(MapInvitation).ToList();
+                var nextCursor = hasNextPage ? data.Last().Id : (int?)null;
+                var resultPagination = new CursorPagination(nextCursor, hasNextPage, pageSize);
+
+                return CursorPagedResult<InvitationDto>.Success(data, resultPagination, "Successfully Retrieved User's Invitation Feed");
+            }
+            catch (Exception ex)
+            {
+                return CursorPagedResult<InvitationDto>.Failure($"Application Layer Exception: {ex.Message}");
+            }
+        }
+
         public async Task<PagedResult<InvitationDto>> GetInvitedByOtherList(int id, PaginationRequest? pagination = null)
         {
             var pageNumber = pagination?.PageNumber ?? 1;
@@ -206,13 +249,49 @@ namespace HsumChaint.Domain.Features.User.Services
             }
         }
 
+        public async Task<CursorPagedResult<NotificationDto>> GetUserNotificationFeed(int id, CursorPaginationRequest? pagination = null)
+        {
+            var pageSize = pagination?.PageSize ?? 15;
+            if (pageSize < 1) pageSize = 15;
+
+            try
+            {
+                var query = _context.Notifications.AsNoTracking().Where(n => n.UserId == id && n.IsDeleted == false);
+
+                if (pagination?.LastId.HasValue == true && pagination.LastId.Value > 0)
+                {
+                    query = query.Where(x => x.Id > pagination.LastId.Value);
+                }
+
+                var items = await query.OrderBy(x => x.Id)
+                    .Take(pageSize + 1)
+                    .ToListAsync();
+
+                var hasNextPage = items.Count > pageSize;
+                if (hasNextPage)
+                {
+                    items.RemoveAt(pageSize);
+                }
+
+                var data = items.Select(MapNotification).ToList();
+                var nextCursor = hasNextPage ? data.Last().Id : (int?)null;
+                var resultPagination = new CursorPagination(nextCursor, hasNextPage, pageSize);
+
+                return CursorPagedResult<NotificationDto>.Success(data, resultPagination, "Successfully Retrieved User's Notification Feed");
+            }
+            catch (Exception ex)
+            {
+                return CursorPagedResult<NotificationDto>.Failure($"Application Layer Exception: {ex.Message}");
+            }
+        }
+
         public async Task<Result> DeleteUserNotificationList(int id)
         {
             try
             {
                 var notifications = await _context.Notifications
                     .Where(n => n.UserId == id && n.IsDeleted == false).ToListAsync();
-                foreach (var notification in notifications) notification.IsDelete = true;
+                foreach (var notification in notifications) notification.IsDeleted = true;
                 await _context.SaveChangesAsync();
                 return Result.Success("User notifications deleted successfully.");
             }
@@ -235,7 +314,7 @@ namespace HsumChaint.Domain.Features.User.Services
                     return Result<MonkProfileDto>.Failure("User not found.");
                 }
 
-                if (targetUser.Role == null || !string.Equals(targetUser.Role.Name, "Monk", StringComparison.OrdinalIgnoreCase))
+                if (targetUser.Role == null || !string.Equals(targetUser.Role.Name, SystemRoles.Monk, StringComparison.OrdinalIgnoreCase))
                 {
                     return Result<MonkProfileDto>.Failure("User is not a monk.");
                 }
@@ -273,7 +352,7 @@ namespace HsumChaint.Domain.Features.User.Services
                     return Result<MonkProfileDto>.Failure("User not found.");
                 }
 
-                if (targetUser.Role == null || !string.Equals(targetUser.Role.Name, "Monk", StringComparison.OrdinalIgnoreCase))
+                if (targetUser.Role == null || !string.Equals(targetUser.Role.Name, SystemRoles.Monk, StringComparison.OrdinalIgnoreCase))
                 {
                     return Result<MonkProfileDto>.Failure("User is not a monk.");
                 }
@@ -331,7 +410,7 @@ namespace HsumChaint.Domain.Features.User.Services
                     return Result.Failure("User not found.");
                 }
 
-                if (targetUser.Role == null || !string.Equals(targetUser.Role.Name, "Monk", StringComparison.OrdinalIgnoreCase))
+                if (targetUser.Role == null || !string.Equals(targetUser.Role.Name, SystemRoles.Monk, StringComparison.OrdinalIgnoreCase))
                 {
                     return Result.Failure("User is not a monk.");
                 }
@@ -523,26 +602,5 @@ namespace HsumChaint.Domain.Features.User.Services
 
             return true;
         }
-    
-        public Task<Result<UserDto>> GetUser(GetUserRequestDto request) => GetUser(request.Id);
-        public Task<Result> DeleteUser(DeleteUserRequestDto request) => DeleteUser(request.Id);
-        public Task<PagedResult<InvitationDto>> GetUserInvitationList(GetUserInvitationsRequestDto request) =>
-            GetUserInvitationList(request.Id, new PaginationRequest { PageNumber = request.PageNumber, PageSize = request.PageSize });
-        public Task<PagedResult<InvitationDto>> GetInvitedByOtherList(GetInvitedByOtherRequestDto request) =>
-            GetInvitedByOtherList(request.Id, new PaginationRequest { PageNumber = request.PageNumber, PageSize = request.PageSize });
-        public Task<PagedResult<NotificationDto>> GetUserNotificationList(GetUserNotificationsRequestDto request) =>
-            GetUserNotificationList(request.Id, new PaginationRequest { PageNumber = request.PageNumber, PageSize = request.PageSize });
-        public Task<Result> DeleteUserNotificationList(DeleteUserNotificationsRequestDto request) =>
-            DeleteUserNotificationList(request.Id);
-        public Task<Result<MonkProfileDto>> GetMonkProfile(int currentUserId, GetMonkProfileRequestDto request) =>
-            GetMonkProfile(currentUserId, request.UserId);
-        public Task<Result<MonkProfileDto>> UpdateMonkProfile(int currentUserId, UpdateMonkProfileRequestDto request) =>
-            UpdateMonkProfile(currentUserId, request?.UserId ?? 0, request!);
-        public Task<Result> DeleteMonkProfile(int currentUserId, DeleteMonkProfileRequestDto request) =>
-            request == null ? Task.FromResult(Result.Failure("Request data is required.")) : DeleteMonkProfile(currentUserId, request.UserId);
-        public Task<Result<UserSettingDto>> GetUserSettings(int currentUserId, GetUserSettingsRequestDto request) =>
-            GetUserSettings(currentUserId, request.UserId);
-        public Task<Result<UserSettingDto>> UpdateUserSettings(int currentUserId, UpdateUserSettingRequestDto request) =>
-            UpdateUserSettings(currentUserId, request.UserId, request);
     }
 }

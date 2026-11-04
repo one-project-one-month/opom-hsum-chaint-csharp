@@ -36,8 +36,8 @@ public class AdminApiTests
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         RbacTestData.Seed(db);
-        var admin = new User { Id = 101, Name = "Admin fixture", PhoneNumber = "admin-fixture", RoleId = 1, IsDeleted = false };
-        var donor = new User { Id = 102, Name = "Donor fixture", PhoneNumber = "donor-fixture", RoleId = 3, IsDeleted = false };
+        var admin = new User { Id = 101, Name = "Admin fixture", PhoneNumber = "09100000101", RoleId = 1, IsDeleted = false };
+        var donor = new User { Id = 102, Name = "Donor fixture", PhoneNumber = "09100000102", RoleId = 3, IsDeleted = false };
         foreach (var user in new[] { admin, donor })
             user.Password = new PasswordHasher<User>().HashPassword(user, "Test-password-only");
         db.Users.AddRange(admin, donor);
@@ -59,10 +59,10 @@ public class AdminApiTests
             Assert.True(login!.IsSuccess, login.Message);
             client.DefaultRequestHeaders.Authorization = new("Bearer", login.Data!.AccessToken);
         }
-        await Login("donor-fixture");
+        await Login("09100000102");
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/v1/admin/donations")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/v1/admin/summary")).StatusCode);
-        await Login("admin-fixture");
+        await Login("09100000101");
         using var summary = JsonDocument.Parse(await client.GetStringAsync("/api/v1/admin/summary"));
         Assert.Equal(2, summary.RootElement.GetProperty("data").GetProperty("donations").GetInt32());
         Assert.Equal(2, summary.RootElement.GetProperty("data").GetProperty("monasteries").GetInt32());
@@ -114,9 +114,9 @@ public class AdminApiTests
         var invitationId = invitation.GetProperty("data").GetProperty("invitationId").GetInt32();
         await Write(HttpMethod.Post, "/api/v1/monasteries/10/invitations", new { UserId = 102, SpaceRoleId = 4 }, HttpStatusCode.BadRequest);
         await Write(HttpMethod.Post, $"/api/v1/monasteries/invitations/{invitationId}/respond", new { Status = 1 }, HttpStatusCode.Forbidden);
-        await Login("donor-fixture");
+        await Login("09100000102");
         await Write(HttpMethod.Post, $"/api/v1/monasteries/invitations/{invitationId}/respond", new { Status = 1 });
-        await Login("admin-fixture");
+        await Login("09100000101");
         await Write(HttpMethod.Put, "/api/v1/monasteries/10/members/102/role", new { SpaceRoleId = 3 });
         await Write(HttpMethod.Delete, "/api/v1/monasteries/10/members/102");
         var nextInvite = await Write(HttpMethod.Post, "/api/v1/monasteries/10/invitations", new { UserId = 102, SpaceRoleId = 4 });
@@ -133,11 +133,11 @@ public class AdminApiTests
         Assert.Equal(0, cleared.RootElement.GetProperty("pagination").GetProperty("totalCount").GetInt32());
         await Write(HttpMethod.Post, "/api/v1/admin/notifications", new { UserId = 0, Message = "", Type = 99 }, HttpStatusCode.BadRequest);
         await Write(HttpMethod.Delete, "/api/v1/admin/users/101", expected: HttpStatusCode.BadRequest);
-        await Write(HttpMethod.Put, "/api/v1/admin/users/101", new { Name = "Admin", PhoneNumber = "admin-fixture", RoleId = 3 }, HttpStatusCode.BadRequest);
-        await Write(HttpMethod.Post, "/api/v1/admin/users", new { Name = "New user", PhoneNumber = "new-fixture", Password = "test-password", RoleId = 3 });
-        var createdUser = await db.Users.AsNoTracking().SingleAsync(u => u.PhoneNumber == "new-fixture");
-        await Write(HttpMethod.Put, $"/api/v1/admin/users/{createdUser.Id}", new { Name = "Edited user", PhoneNumber = "new-fixture", RoleId = 4 });
-        await Write(HttpMethod.Put, $"/api/v1/admin/users/{createdUser.Id}", new { Name = "Edited user", PhoneNumber = "admin-fixture", RoleId = 4 }, HttpStatusCode.BadRequest);
+        await Write(HttpMethod.Put, "/api/v1/admin/users/101", new { Name = "Admin", PhoneNumber = "09100000101", RoleId = 3 }, HttpStatusCode.BadRequest);
+        await Write(HttpMethod.Post, "/api/v1/admin/users", new { Name = "New user", PhoneNumber = "09100000103", Password = "test-password", RoleId = 3 });
+        var createdUser = await db.Users.AsNoTracking().SingleAsync(u => u.PhoneNumber == "09100000103");
+        await Write(HttpMethod.Put, $"/api/v1/admin/users/{createdUser.Id}", new { Name = "Edited user", PhoneNumber = "09100000103", RoleId = 4 });
+        await Write(HttpMethod.Put, $"/api/v1/admin/users/{createdUser.Id}", new { Name = "Edited user", PhoneNumber = "09100000101", RoleId = 4 }, HttpStatusCode.BadRequest);
         await Write(HttpMethod.Delete, $"/api/v1/admin/users/{createdUser.Id}");
         admin.IsDeleted = true;
         await db.SaveChangesAsync();

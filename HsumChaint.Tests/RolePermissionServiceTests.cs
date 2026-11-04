@@ -31,13 +31,13 @@ public class RolePermissionServiceTests
         Assert.True((await service.UpdateRole(id, new() { Name = "Custom Reviewer", PermissionIds = new() { donationReview.Id } })).IsSuccess);
         Assert.True((await service.AssignPermissions(new() { RoleId = id, PermissionIds = new() { donationView.Id } })).IsSuccess);
         Assert.Equal(2, await db.RolePermissions.CountAsync(rp => rp.RoleId == id));
-        Assert.Equal("Donation.View", (await service.GetRoleById(id)).Data!.Permissions.Single().Name);
+        Assert.Equal("Donation.View", (await service.GetRole(id)).Data!.Permissions.Single().Name);
         Assert.Contains((await service.GetRoles()).Data!, r => r.Id == id && r.Name == "Custom Reviewer");
         var permissions = await service.GetPermissions();
         Assert.Equal(10, permissions.Data.Count);
         Assert.Equal(Permissions.All.Count, permissions.Pagination.TotalCount);
         Assert.True((await service.DeleteRole(id)).Data);
-        Assert.False((await service.GetRoleById(id)).IsSuccess);
+        Assert.False((await service.GetRole(id)).IsSuccess);
     }
 
     [Theory]
@@ -67,7 +67,7 @@ public class RolePermissionServiceTests
         var service = new RolePermissionService(db);
         Assert.False((await service.AssignPermissions(new() { RoleId = 1, PermissionIds = Enumerable.Range(1, Permissions.All.Count - 1).ToList() })).IsSuccess);
         Assert.True((await service.AssignPermissions(new() { RoleId = 1, PermissionIds = Enumerable.Range(1, Permissions.All.Count).Append(30).ToList() })).IsSuccess);
-        Assert.Equal(Permissions.All.Count + 1, (await service.GetRoleById(1)).Data!.Permissions.Count);
+        Assert.Equal(Permissions.All.Count + 1, (await service.GetRole(1)).Data!.Permissions.Count);
     }
 
     [Fact]
@@ -96,7 +96,7 @@ public class RolePermissionServiceTests
         Assert.False((await service.AssignPermissions(new() { RoleId = 3, PermissionIds = new() { firstPerm.Id } })).IsSuccess);
         Assert.False((await service.UpdateRole(3, new() { Name = "Changed", PermissionIds = new() { 999 } })).IsSuccess);
         Assert.Equal("User", db.Roles.Find(3)!.Name);
-        Assert.False((await service.GetRoleById(999)).IsSuccess);
+        Assert.False((await service.GetRole(999)).IsSuccess);
     }
 
     [Fact]

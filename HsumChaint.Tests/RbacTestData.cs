@@ -9,9 +9,9 @@ internal static class RbacTestData
     public static void Seed(AppDbContext db)
     {
         db.Roles.AddRange(
-            new Role { Id = 1, Name = "Admin" },
-            new Role { Id = 2, Name = "Monk" },
-            new Role { Id = 3, Name = "User" },
+            new Role { Id = SystemRoles.AdminId, Name = SystemRoles.Admin },
+            new Role { Id = SystemRoles.MonkId, Name = SystemRoles.Monk },
+            new Role { Id = SystemRoles.DonorId, Name = SystemRoles.Donor },
             new Role { Id = 4, Name = "Editor" },
             new Role { Id = 5, Name = "Viewer" });
 

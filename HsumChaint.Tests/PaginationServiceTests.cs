@@ -52,11 +52,11 @@ public class PaginationServiceTests
         for (var id = 1; id <= 12; id++)
         {
             db.Invitations.Add(new Invitation { Id = id, InvitedUserId = 1, InvitedById = 2, SpaceRoleId = SpaceRoles.ViewerId });
-            db.Notifications.Add(new Notification { Id = id, UserId = 1, IsDelete = false });
+            db.Notifications.Add(new Notification { Id = id, UserId = 1, IsDeleted = false });
         }
         db.Invitations.Add(new Invitation { Id = 13, InvitedUserId = 9, InvitedById = 9, SpaceRoleId = SpaceRoles.ViewerId });
-        db.Notifications.Add(new Notification { Id = 13, UserId = 9, IsDelete = false });
-        db.Notifications.Add(new Notification { Id = 14, UserId = 1, IsDelete = true });
+        db.Notifications.Add(new Notification { Id = 13, UserId = 9, IsDeleted = false });
+        db.Notifications.Add(new Notification { Id = 14, UserId = 1, IsDeleted = true });
         await db.SaveChangesAsync();
         var service = new UserService(db);
         var page = new PaginationRequest { PageNumber = 2 };

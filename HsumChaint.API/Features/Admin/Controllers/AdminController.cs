@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using HsumChaint.API.Extensions;
 using HsumChaint.Database.Models;
 using HsumChaint.Shared;
+using HsumChaint.Shared.Authorization;
 using HsumChaint.Shared.CommonEnum;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -22,7 +23,7 @@ public partial class AdminController(AppDbContext db) : ControllerBase, IAsyncAc
     {
         var userId = User.GetCurrentUserId();
         if (!userId.HasValue || !await db.Users.AnyAsync(x => x.Id == userId && x.IsDeleted != true
-            && x.Role != null && !x.Role.IsDeleted && x.Role.Name == "Admin", HttpContext.RequestAborted))
+            && x.Role != null && !x.Role.IsDeleted && x.Role.Name == SystemRoles.Admin, HttpContext.RequestAborted))
         {
             context.Result = Forbid();
             return;

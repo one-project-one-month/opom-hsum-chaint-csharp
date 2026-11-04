@@ -28,7 +28,7 @@ public class NotificationServiceTests
         await dbContext.SaveChangesAsync();
 
         var notificationProvider = new Mock<IFirebaseNotificationProvider>();
-        var notificationService = new NotificationServices(dbContext, notificationProvider.Object);
+        var notificationService = new NotificationService(dbContext, notificationProvider.Object);
 
         var response = await notificationService.SendNotificationAndStore(new CreateNotificationRequestDto
         {
@@ -57,11 +57,11 @@ public class NotificationServiceTests
             Id = 5,
             UserId = 7,
             IsRead = false,
-            IsDelete = false,
+            IsDeleted = false,
             Type = NotificationType.Donation
         });
         await dbContext.SaveChangesAsync();
-        var notificationService = new NotificationServices(dbContext, Mock.Of<IFirebaseNotificationProvider>());
+        var notificationService = new NotificationService(dbContext, Mock.Of<IFirebaseNotificationProvider>());
 
         var response = await notificationService.ReadNotification(new ReadNotificationRequestDto { UserId = 7, NotificationId = 5 });
 
@@ -80,18 +80,18 @@ public class NotificationServiceTests
             Id = 9,
             UserId = 7,
             IsRead = false,
-            IsDelete = false,
+            IsDeleted = false,
             Type = NotificationType.Donation
         });
         await dbContext.SaveChangesAsync();
-        var notificationService = new NotificationServices(dbContext, Mock.Of<IFirebaseNotificationProvider>());
+        var notificationService = new NotificationService(dbContext, Mock.Of<IFirebaseNotificationProvider>());
 
         var response = await notificationService.DeleteNotification(new DeleteNotificationRequestDto { UserId = 7, NotificationId = 9 });
 
         Assert.True(response.IsSuccess);
         Assert.NotNull(response.Data);
         Assert.Equal(9, response.Data!.NotificationId);
-        Assert.True((await dbContext.Notifications.FindAsync(9))!.IsDelete);
+        Assert.True((await dbContext.Notifications.FindAsync(9))!.IsDeleted);
     }
 
     private static AppDbContext CreateDbContext()
