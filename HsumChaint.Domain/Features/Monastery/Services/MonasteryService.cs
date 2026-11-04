@@ -59,9 +59,8 @@ namespace HsumChaint.Domain.Features.Monastery.Services
             return Result<MonasterySpaceDto>.Success(MapMonastery(monastery, SpaceRoles.OwnerId, SpaceRoles.Owner, true), "Monastery created successfully.");
         }
 
-        public async Task<Result<MonasterySpaceDto>> UpdateMonastery(int currentUserId, UpdateMonasteryRequestDto request)
+        public async Task<Result<MonasterySpaceDto>> UpdateMonastery(int currentUserId, int monasterySpaceId, UpdateMonasteryRequestDto request)
         {
-            var monasterySpaceId = request.Id;
             var member = await GetMember(currentUserId, monasterySpaceId);
 
             if (!await HasPermissionTo(currentUserId, member, SpacePermissions.SpaceUpdate))
@@ -92,15 +91,8 @@ namespace HsumChaint.Domain.Features.Monastery.Services
             return Result<MonasterySpaceDto>.Success(MapMonastery(monastery, member?.SpaceRoleId, member?.SpaceRole?.Name, member?.IsOwner == true), "Monastery updated successfully.");
         }
 
-        public Task<Result<MonasterySpaceDto>> UpdateMonastery(int currentUserId, int monasterySpaceId, UpdateMonasteryRequestDto request)
+        public async Task<Result<bool>> DeleteMonastery(int currentUserId, int monasterySpaceId)
         {
-            request.Id = monasterySpaceId;
-            return UpdateMonastery(currentUserId, request);
-        }
-
-        public async Task<Result<bool>> DeleteMonastery(int currentUserId, DeleteMonasteryRequestDto request)
-        {
-            var monasterySpaceId = request.Id;
             var monastery = await ActiveMonasteries.FirstOrDefaultAsync(x => x.Id == monasterySpaceId);
             if (monastery == null)
             {
@@ -119,14 +111,8 @@ namespace HsumChaint.Domain.Features.Monastery.Services
             return Result<bool>.Success(true, "Monastery deleted successfully.");
         }
 
-        public Task<Result<bool>> DeleteMonastery(int currentUserId, int monasterySpaceId)
+        public async Task<Result<MonasterySpaceDto>> GetMonastery(int currentUserId, int monasterySpaceId)
         {
-            return DeleteMonastery(currentUserId, new DeleteMonasteryRequestDto { Id = monasterySpaceId });
-        }
-
-        public async Task<Result<MonasterySpaceDto>> GetMonastery(int currentUserId, GetMonasteryRequestDto request)
-        {
-            var monasterySpaceId = request.Id;
             var member = await GetMember(currentUserId, monasterySpaceId);
             if (member == null)
             {
@@ -140,11 +126,6 @@ namespace HsumChaint.Domain.Features.Monastery.Services
             }
 
             return Result<MonasterySpaceDto>.Success(MapMonastery(monastery, member.SpaceRoleId, member.SpaceRole?.Name, member.IsOwner == true), "Monastery retrieved successfully.");
-        }
-
-        public Task<Result<MonasterySpaceDto>> GetMonastery(int currentUserId, int monasterySpaceId)
-        {
-            return GetMonastery(currentUserId, new GetMonasteryRequestDto { Id = monasterySpaceId });
         }
 
         public async Task<PagedResult<MonasterySpaceDto>> GetMonasteries(GetMonasteriesRequestDto request)
@@ -357,9 +338,8 @@ namespace HsumChaint.Domain.Features.Monastery.Services
             return CursorPagedResult<MonasterySpaceDto>.Success(items, pagination, "My monasteries feed retrieved successfully.");
         }
 
-        public async Task<Result<InvitationResponseDto>> InviteMember(int currentUserId, InviteMemberRequestDto request)
+        public async Task<Result<InvitationResponseDto>> InviteMember(int currentUserId, int monasterySpaceId, InviteMemberRequestDto request)
         {
-            var monasterySpaceId = request.MonasterySpaceId;
             if (!await ActiveMonasteries.AnyAsync(m => m.Id == monasterySpaceId))
                 return Result<InvitationResponseDto>.Failure("Monastery not found.");
 
@@ -426,9 +406,8 @@ namespace HsumChaint.Domain.Features.Monastery.Services
             return Result<InvitationResponseDto>.Success(MapInvitation(invitation), "Invitation created successfully.");
         }
 
-        public async Task<Result<InvitationResponseDto>> RespondToInvitation(int currentUserId, RespondInvitationRequestDto request)
+        public async Task<Result<InvitationResponseDto>> RespondToInvitation(int currentUserId, int invitationId, RespondInvitationRequestDto request)
         {
-            var invitationId = request.InvitationId;
             if (request.Status != InvitationStatus.Accept && request.Status != InvitationStatus.Reject)
             {
                 return Result<InvitationResponseDto>.Failure("Invitation response must be Accept or Reject.");
@@ -479,11 +458,10 @@ namespace HsumChaint.Domain.Features.Monastery.Services
                 : "Invitation rejected successfully.");
         }
 
-        public async Task<PagedResult<MonasteryMemberDto>> GetMembers(int currentUserId, GetMonasteryMembersRequestDto request)
+        public async Task<PagedResult<MonasteryMemberDto>> GetMembers(int currentUserId, int monasterySpaceId, PaginationRequest? pagination = null)
         {
-            var monasterySpaceId = request.MonasterySpaceId;
-            var pageNumber = request.PageNumber < 1 ? 1 : request.PageNumber;
-            var pageSize = request.PageSize < 1 ? 10 : request.PageSize;
+            var pageNumber = (pagination?.PageNumber ?? 1) < 1 ? 1 : (pagination?.PageNumber ?? 1);
+            var pageSize = (pagination?.PageSize ?? 10) < 1 ? 10 : (pagination?.PageSize ?? 10);
             if (((long)pageNumber - 1) * pageSize > int.MaxValue)
             {
                 return PagedResult<MonasteryMemberDto>.Failure("Page number and page size must be positive and within the supported range.");
@@ -514,10 +492,8 @@ namespace HsumChaint.Domain.Features.Monastery.Services
             return PagedResult<MonasteryMemberDto>.Success(members, new Pagination(pageNumber, pageSize, totalCount), "Members retrieved successfully.");
         }
 
-        public async Task<Result<MonasteryMemberDto>> UpdateMemberRole(int currentUserId, UpdateMemberRoleRequestDto request)
+        public async Task<Result<MonasteryMemberDto>> UpdateMemberRole(int currentUserId, int monasterySpaceId, int memberUserId, UpdateMemberRoleRequestDto request)
         {
-            var monasterySpaceId = request.MonasterySpaceId;
-            var memberUserId = request.MemberUserId;
             var actor = await GetMember(currentUserId, monasterySpaceId);
 
             if (!await HasPermissionTo(currentUserId, actor, SpacePermissions.SpaceUpdateMemberRole))
@@ -552,10 +528,8 @@ namespace HsumChaint.Domain.Features.Monastery.Services
             return Result<MonasteryMemberDto>.Success((await GetMemberDtos(monasterySpaceId)).First(x => x.UserId == memberUserId), "Member role updated successfully.");
         }
 
-        public async Task<Result<MonasteryMemberDto>> RemoveMember(int currentUserId, RemoveMemberRequestDto request)
+        public async Task<Result<MonasteryMemberDto>> RemoveMember(int currentUserId, int monasterySpaceId, int memberUserId)
         {
-            var monasterySpaceId = request.MonasterySpaceId;
-            var memberUserId = request.MemberUserId;
             var actor = await GetMember(currentUserId, monasterySpaceId);
 
             if (!await HasPermissionTo(currentUserId, actor, SpacePermissions.SpaceRemoveMember))
@@ -579,44 +553,6 @@ namespace HsumChaint.Domain.Features.Monastery.Services
             await _dbContext.SaveChangesAsync();
 
             return Result<MonasteryMemberDto>.Success(dto, "Member removed successfully.");
-        }
-
-        public Task<Result<InvitationResponseDto>> InviteMember(int currentUserId, int monasterySpaceId, InviteMemberRequestDto request)
-        {
-            request.MonasterySpaceId = monasterySpaceId;
-            return InviteMember(currentUserId, request);
-        }
-
-        public Task<Result<InvitationResponseDto>> RespondToInvitation(int currentUserId, int invitationId, RespondInvitationRequestDto request)
-        {
-            request.InvitationId = invitationId;
-            return RespondToInvitation(currentUserId, request);
-        }
-
-        public Task<PagedResult<MonasteryMemberDto>> GetMembers(int currentUserId, int monasterySpaceId, PaginationRequest? pagination = null)
-        {
-            return GetMembers(currentUserId, new GetMonasteryMembersRequestDto
-            {
-                MonasterySpaceId = monasterySpaceId,
-                PageNumber = pagination?.PageNumber ?? 1,
-                PageSize = pagination?.PageSize ?? 10
-            });
-        }
-
-        public Task<Result<MonasteryMemberDto>> UpdateMemberRole(int currentUserId, int monasterySpaceId, int memberUserId, UpdateMemberRoleRequestDto request)
-        {
-            request.MonasterySpaceId = monasterySpaceId;
-            request.MemberUserId = memberUserId;
-            return UpdateMemberRole(currentUserId, request);
-        }
-
-        public Task<Result<MonasteryMemberDto>> RemoveMember(int currentUserId, int monasterySpaceId, int memberUserId)
-        {
-            return RemoveMember(currentUserId, new RemoveMemberRequestDto
-            {
-                MonasterySpaceId = monasterySpaceId,
-                MemberUserId = memberUserId
-            });
         }
 
         private async Task<MonasteryMember?> GetMember(int userId, int monasterySpaceId)

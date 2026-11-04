@@ -103,8 +103,7 @@ namespace HsumChaint.API.Features.Monastery.Controllers
                 return Unauthorized();
             }
 
-            var request = new GetMonasteryRequestDto { Id = id };
-            var response = await _monasteryService.GetMonastery(currentUserId.Value, request);
+            var response = await _monasteryService.GetMonastery(currentUserId.Value, id);
             return response.ToActionResult();
         }
 
@@ -118,8 +117,7 @@ namespace HsumChaint.API.Features.Monastery.Controllers
                 return Unauthorized();
             }
 
-            request.Id = id;
-            var response = await _monasteryService.UpdateMonastery(currentUserId.Value, request);
+            var response = await _monasteryService.UpdateMonastery(currentUserId.Value, id, request);
             return response.ToActionResult();
         }
 
@@ -133,8 +131,7 @@ namespace HsumChaint.API.Features.Monastery.Controllers
                 return Unauthorized();
             }
 
-            var request = new DeleteMonasteryRequestDto { Id = id };
-            var response = await _monasteryService.DeleteMonastery(currentUserId.Value, request);
+            var response = await _monasteryService.DeleteMonastery(currentUserId.Value, id);
             return response.ToActionResult();
         }
 
@@ -148,8 +145,7 @@ namespace HsumChaint.API.Features.Monastery.Controllers
                 return Unauthorized();
             }
 
-            request.MonasterySpaceId = id;
-            var response = await _monasteryService.InviteMember(currentUserId.Value, request);
+            var response = await _monasteryService.InviteMember(currentUserId.Value, id, request);
             return response.ToActionResult();
         }
 
@@ -163,8 +159,7 @@ namespace HsumChaint.API.Features.Monastery.Controllers
                 return Unauthorized();
             }
 
-            request.InvitationId = invitationId;
-            var response = await _monasteryService.RespondToInvitation(currentUserId.Value, request);
+            var response = await _monasteryService.RespondToInvitation(currentUserId.Value, invitationId, request);
             return response.ToActionResult();
         }
 
@@ -178,13 +173,7 @@ namespace HsumChaint.API.Features.Monastery.Controllers
                 return Unauthorized();
             }
 
-            var request = new GetMonasteryMembersRequestDto
-            {
-                MonasterySpaceId = id,
-                PageNumber = pagination.PageNumber,
-                PageSize = pagination.PageSize
-            };
-            var response = await _monasteryService.GetMembers(currentUserId.Value, request);
+            var response = await _monasteryService.GetMembers(currentUserId.Value, id, pagination);
             return response.ToActionResult();
         }
 
@@ -198,9 +187,7 @@ namespace HsumChaint.API.Features.Monastery.Controllers
                 return Unauthorized();
             }
 
-            request.MonasterySpaceId = id;
-            request.MemberUserId = memberUserId;
-            var response = await _monasteryService.UpdateMemberRole(currentUserId.Value, request);
+            var response = await _monasteryService.UpdateMemberRole(currentUserId.Value, id, memberUserId, request);
             return response.ToActionResult();
         }
 
@@ -214,12 +201,7 @@ namespace HsumChaint.API.Features.Monastery.Controllers
                 return Unauthorized();
             }
 
-            var request = new RemoveMemberRequestDto
-            {
-                MonasterySpaceId = id,
-                MemberUserId = memberUserId
-            };
-            var response = await _monasteryService.RemoveMember(currentUserId.Value, request);
+            var response = await _monasteryService.RemoveMember(currentUserId.Value, id, memberUserId);
             return response.ToActionResult();
         }
 
