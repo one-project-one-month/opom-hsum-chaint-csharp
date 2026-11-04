@@ -27,11 +27,8 @@ public class SpaceRolesController(IRolePermissionService service) : ControllerBa
         (await service.CreateSpaceRole(request)).ToActionResult();
 
     [HttpPut("{id:int}"), HasPermission(Permissions.Roles.Manage)]
-    public async Task<IActionResult> UpdateSpaceRole(int id, UpdateSpaceRoleRequestDto request)
-    {
-        request.Id = id;
-        return (await service.UpdateSpaceRole(id, request)).ToActionResult();
-    }
+    public async Task<IActionResult> UpdateSpaceRole(int id, UpdateSpaceRoleRequestDto request) =>
+        (await service.UpdateSpaceRole(id, request)).ToActionResult();
 
     [HttpDelete("{id:int}"), HasPermission(Permissions.Roles.Manage)]
     public async Task<IActionResult> DeleteSpaceRole(int id) =>

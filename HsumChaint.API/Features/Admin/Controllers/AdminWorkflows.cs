@@ -50,7 +50,7 @@ public partial class AdminController
         if (id == User.GetCurrentUserId()) return BadRequest(Result.Failure("You cannot deactivate your own account."));
         if (await db.MonasteryMembers.AnyAsync(m => m.UserId == id && m.IsOwner == true && m.MonasterySpace != null && !m.MonasterySpace.IsDeleted))
             return BadRequest(Result.Failure("A monastery owner cannot be deactivated while owning an active monastery."));
-        return (await service.DeleteUser(new DeleteUserRequestDto { Id = id })).ToActionResult();
+        return (await service.DeleteUser(id)).ToActionResult();
     }
 
     [HttpGet("invitations")]

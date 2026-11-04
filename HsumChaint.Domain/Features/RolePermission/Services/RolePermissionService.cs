@@ -35,13 +35,7 @@ public class RolePermissionService(AppDbContext db) : IRolePermissionService
         return PagedResult<RoleDto>.Success(roles, new Pagination(pageNumber, pageSize, totalCount), "Roles retrieved successfully.");
     }
 
-    public Task<Result<RoleDto>> GetRole(GetRoleRequestDto request) => GetRoleById(request.Id);
-
-    public Task<Result<RoleDto>> UpdateRole(UpdateRoleRequestDto request) => UpdateRole(request.Id, request);
-
-    public Task<Result<bool>> DeleteRole(DeleteRoleRequestDto request) => DeleteRole(request.Id);
-
-    public async Task<Result<RoleDto>> GetRoleById(int id)
+    public async Task<Result<RoleDto>> GetRole(int id)
     {
         var role = await RolesWithPermissions.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id);
         return role == null ? Result<RoleDto>.Failure("Role not found.") : Result<RoleDto>.Success(Map(role), "Successful.");
@@ -56,7 +50,7 @@ public class RolePermissionService(AppDbContext db) : IRolePermissionService
             role.RolePermissions.Add(new RolePermissionEntity { PermissionId = id });
         db.Roles.Add(role);
         await db.SaveChangesAsync();
-        return await GetRoleById(role.Id);
+        return await GetRole(role.Id);
     }
 
     public async Task<Result<RoleDto>> UpdateRole(int id, UpdateRoleRequestDto request)
@@ -70,7 +64,7 @@ public class RolePermissionService(AppDbContext db) : IRolePermissionService
         role.Name = request.Name.Trim();
         ReplacePermissions(role, request.PermissionIds);
         await db.SaveChangesAsync();
-        return await GetRoleById(id);
+        return await GetRole(id);
     }
 
     public async Task<Result<bool>> DeleteRole(int id)

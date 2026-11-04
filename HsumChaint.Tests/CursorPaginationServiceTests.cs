@@ -243,9 +243,8 @@ public class CursorPaginationServiceTests
 
         var service = new UserService(db);
 
-        var first = await service.GetUserNotificationFeed(new GetUserNotificationsFeedRequestDto
+        var first = await service.GetUserNotificationFeed(1, new CursorPaginationRequest
         {
-            Id = 1,
             LastId = null,
             PageSize = 3
         });
@@ -255,9 +254,8 @@ public class CursorPaginationServiceTests
         Assert.True(first.Pagination.HasNextPage);
         Assert.Equal(3, first.Pagination.NextCursor);
 
-        var second = await service.GetUserNotificationFeed(new GetUserNotificationsFeedRequestDto
+        var second = await service.GetUserNotificationFeed(1, new CursorPaginationRequest
         {
-            Id = 1,
             LastId = 3,
             PageSize = 3
         });
@@ -295,9 +293,8 @@ public class CursorPaginationServiceTests
 
         var service = new UserService(db);
 
-        var first = await service.GetUserInvitationFeed(new GetUserInvitationsFeedRequestDto
+        var first = await service.GetUserInvitationFeed(10, new CursorPaginationRequest
         {
-            Id = 10,
             LastId = null,
             PageSize = 3
         });
@@ -307,9 +304,8 @@ public class CursorPaginationServiceTests
         Assert.True(first.Pagination.HasNextPage);
         Assert.Equal(3, first.Pagination.NextCursor);
 
-        var second = await service.GetUserInvitationFeed(new GetUserInvitationsFeedRequestDto
+        var second = await service.GetUserInvitationFeed(10, new CursorPaginationRequest
         {
-            Id = 10,
             LastId = 3,
             PageSize = 3
         });
