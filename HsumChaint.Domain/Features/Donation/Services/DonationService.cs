@@ -189,6 +189,77 @@ namespace HsumChaint.Domain.Features.Donation.Services
             return PagedResult<DonationDto>.Success(list, new Pagination(pageNumber, pageSize, totalCount), "Donations retrieved successfully.");
         }
 
+        public async Task<CursorPagedResult<DonationDto>> GetDonationsFeed(int currentUserId, DonationFeedQueryDto query)
+        {
+            var pageSize = query.PageSize < 1 ? 15 : query.PageSize;
+            IQueryable<DonationEntity> donations = _dbContext.DonorLists.AsNoTracking();
+
+            if (query.MonasterySpaceId.HasValue)
+            {
+                if (!await _dbContext.MonasterySpaces.AnyAsync(m => m.Id == query.MonasterySpaceId.Value && !m.IsDeleted))
+                    return CursorPagedResult<DonationDto>.Failure("Monastery not found.");
+
+                var member = await GetMember(currentUserId, query.MonasterySpaceId.Value);
+                if (member == null && !await IsSystemAdmin(currentUserId))
+                {
+                    return CursorPagedResult<DonationDto>.Failure("User is not a member of this monastery.");
+                }
+
+                donations = donations.Where(x => x.MonasterySpaceId == query.MonasterySpaceId.Value);
+            }
+            else
+            {
+                if (!await IsSystemAdmin(currentUserId)) donations = donations.Where(x => x.DonorId == currentUserId);
+            }
+
+            if (query.DonorId.HasValue)
+            {
+                if (!query.MonasterySpaceId.HasValue && query.DonorId.Value != currentUserId && !await IsSystemAdmin(currentUserId))
+                {
+                    return CursorPagedResult<DonationDto>.Failure("User is not authorized to view this donor history.");
+                }
+
+                donations = donations.Where(x => x.DonorId == query.DonorId.Value);
+            }
+
+            if (query.Status.HasValue)
+            {
+                donations = donations.Where(x => x.StatusValue == query.Status.Value);
+            }
+
+            if (query.FromDate.HasValue)
+            {
+                donations = donations.Where(x => x.CreatedAt >= query.FromDate.Value);
+            }
+
+            if (query.ToDate.HasValue)
+            {
+                donations = donations.Where(x => x.CreatedAt <= query.ToDate.Value);
+            }
+
+            if (query.LastId.HasValue && query.LastId.Value > 0)
+            {
+                donations = donations.Where(x => x.Id > query.LastId.Value);
+            }
+
+            var donationEntities = await donations
+                .OrderBy(x => x.Id)
+                .Take(pageSize + 1)
+                .ToListAsync();
+
+            var hasNextPage = donationEntities.Count > pageSize;
+            if (hasNextPage)
+            {
+                donationEntities.RemoveAt(pageSize);
+            }
+
+            var list = donationEntities.Select(MapDonation).ToList();
+            var nextCursor = hasNextPage ? list.Last().Id : (int?)null;
+            var pagination = new CursorPagination(nextCursor, hasNextPage, pageSize);
+
+            return CursorPagedResult<DonationDto>.Success(list, pagination, "Donations feed retrieved successfully.");
+        }
+
         public Task<Result<DonationDto>> GetDonation(int currentUserId, GetDonationRequestDto request)
         {
             return GetDonation(currentUserId, request.Id);

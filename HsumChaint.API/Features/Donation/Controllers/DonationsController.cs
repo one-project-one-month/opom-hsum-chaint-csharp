@@ -62,6 +62,20 @@ namespace HsumChaint.API.Features.Donation.Controllers
             return response.ToActionResult();
         }
 
+        [HttpGet("feed")]
+        [HasPermission(Permissions.Donation.View)]
+        public async Task<IActionResult> GetDonationsFeed([FromQuery] DonationFeedQueryDto query)
+        {
+            var currentUserId = User.GetCurrentUserId();
+            if (!currentUserId.HasValue)
+            {
+                return Unauthorized();
+            }
+
+            var response = await _donationService.GetDonationsFeed(currentUserId.Value, query);
+            return response.ToActionResult();
+        }
+
         [HttpGet("{id}")]
         [HasPermission(Permissions.Donation.View)]
         public async Task<IActionResult> GetDonation(int id)

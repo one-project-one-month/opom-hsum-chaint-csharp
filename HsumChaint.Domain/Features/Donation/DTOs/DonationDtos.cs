@@ -84,6 +84,15 @@ namespace HsumChaint.Domain.Features.Donation.DTOs
         public DateTime? ToDate { get; set; }
     }
 
+    public class DonationFeedQueryDto : CursorPaginationRequest
+    {
+        public int? MonasterySpaceId { get; set; }
+        public int? DonorId { get; set; }
+        public DonationStatus? Status { get; set; }
+        public DateTime? FromDate { get; set; }
+        public DateTime? ToDate { get; set; }
+    }
+
     public class CreateBatchDonationRequestDto
     {
         public int MonasterySpaceId { get; set; }

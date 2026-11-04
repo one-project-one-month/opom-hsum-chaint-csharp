@@ -8,6 +8,7 @@ namespace HsumChaint.Domain.Features.Donation.ServiceInterfaces
         Task<Result<DonationDto>> RequestDonation(int currentUserId, CreateDonationRequestDto request);
         Task<Result<DonationDto>> CreateManualDonation(int currentUserId, CreateManualDonationRequestDto request);
         Task<PagedResult<DonationDto>> GetDonations(int currentUserId, DonationQueryDto query);
+        Task<CursorPagedResult<DonationDto>> GetDonationsFeed(int currentUserId, DonationFeedQueryDto query);
         Task<Result<DonationDto>> GetDonation(int currentUserId, GetDonationRequestDto request);
         Task<Result<DonationDto>> ReviewDonation(int currentUserId, ReviewDonationRequestDto request);
         Task<Result<DonationDto>> ScheduleDonation(int currentUserId, ScheduleDonationRequestDto request);
