@@ -35,7 +35,7 @@ a { text-decoration:none; }
 .nav-item { position:relative; display:flex; align-items:center; gap:12px; min-height:59px; padding:10px 13px; border-radius:9px; color:#b7cdc1; font-size:12px; }
 .nav-item small { display:block; color:#8eab9c; font:10px/1.8 system-ui,sans-serif; margin-top:2px; }
 .nav-item:hover { background:#ffffff09; color:#fff; }
-.nav-item.active { background:#ffffff10; color:#fff; box-shadow:inset 3px 0 #e18a4d; }
+.nav-item.active { background:#ffffff14; color:#fff; border:1px solid #ffffff20; box-shadow:0 8px 20px #0a21172b, inset 0 1px #ffffff12; transform:translateY(-1px); }
 .nav-item.active svg { color:#efaa76; }
 .sidebar-bottom { margin-top:auto; padding-top:40px; }
 .workspace-note { display:flex; gap:10px; padding:15px 12px; margin-bottom:19px; color:#bed0c5; border:1px solid #ffffff15; border-radius:10px; font:11px/1.6 system-ui,sans-serif; }
@@ -96,7 +96,7 @@ a { text-decoration:none; }
 .search-field { position:relative; width:230px; }.search-field > svg { position:absolute; left:11px; top:11px; color:#8a968c; }.search-field input { padding-left:35px; }
 .select { height:36px; padding:0 10px; border:1px solid #ccd3cd; background:#fff; border-radius:9px; font-size:12px; color:#536055; max-width:100%; }
 .date-filter { display:flex; align-items:center; gap:7px; font-size:10px; color:#7b887f; }.date-filter input { width:142px; font-size:11px; }
-.pagination { display:flex; align-items:center; justify-content:space-between; gap:15px; padding:17px 20px; font-size:11px; color:#7a877b; border-top:1px solid #e5e8e0; }.pagination > div { display:flex; gap:7px; }
+.pagination { display:flex; align-items:center; justify-content:space-between; gap:15px; padding:17px 20px; font-size:11px; color:#7a877b; border-top:1px solid #e5e8e0; }.pagination > div,.pager-slot { display:flex; align-items:center; gap:7px; }.pager-disabled { opacity:.42; pointer-events:none; }.pager-ellipsis { padding:0 2px; }.pagination [aria-current=page] { box-shadow:0 3px 10px #b65a2030; }
 .app-footer { display:flex; justify-content:space-between; gap:12px; margin:0 32px; padding:19px 0; border-top:1px solid #dfe5da; font-size:10px; color:#8e9b8e; }.app-footer span { font-family:system-ui,sans-serif; letter-spacing:.4px; }
 .empty-state { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:65px 24px; text-align:center; gap:14px; color:#819080; }.empty-state h2,.empty-state h3 { font-size:17px; font-weight:600; color:#405443; }.empty-state p { max-width:470px; font-size:12px; line-height:2; }
 .role-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; }.role-card { box-shadow:none; align-content:start; }.role-icon { display:grid; place-items:center; width:42px; height:42px; border-radius:10px; background:#edf3eb; color:#40694b; margin-bottom:12px; }.role-card [data-slot=card-title] { font:600 19px system-ui,sans-serif; }.role-card p { font-size:11px; margin-top:7px; }.permission-chips { display:flex; flex-wrap:wrap; gap:6px; }.permission-chips [data-slot=badge] { font:10px/1.7 system-ui,sans-serif; white-space:normal; word-break:break-word; }
@@ -123,6 +123,11 @@ a { text-decoration:none; }
 .workflow-dialog { max-height:90dvh; overflow-y:auto; width:calc(100% - 32px); max-width:620px; }
 .workflow-fields { display:grid; gap:18px; margin:10px 0 25px; }
 .workflow-fields .select { width:100%; height:42px; }.workflow-fields input { min-height:42px; }
+.date-text-input { width:100%; height:36px; padding:0 10px; border:1px solid #ccd3cd; background:#fff; border-radius:9px; color:#536055; font-size:12px; }
+.workflow-fields .date-text-input { height:42px; }
+.clear-filter { background:#fff; border-color:#c6cec6; color:#405443; }.clear-filter:hover { background:#f0f4ee; border-color:#9daa9d; }.clear-filter:active { transform:translateY(1px); }
+.number-column { width:64px; max-width:64px; text-align:center; color:#7a877e; }
+.combobox { position:relative; }.combobox-trigger { width:100%; height:42px; padding:0 11px; border:1px solid #ccd3cd; border-radius:9px; background:#fff; display:flex; align-items:center; justify-content:space-between; gap:10px; text-align:left; color:#536055; }.combobox-trigger span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.combobox-popover { position:absolute; z-index:80; top:calc(100% + 6px); left:0; right:0; background:#fff; border:1px solid #d7ddd6; border-radius:10px; box-shadow:0 14px 35px #16231e20; overflow:hidden; }.combobox-search { display:flex; align-items:center; gap:8px; padding:8px 10px; border-bottom:1px solid #e8ebe5; color:#7a877e; }.combobox-search input { min-width:0; width:100%; min-height:34px; border:0; outline:0; }.combobox-search button { color:#7a877e; }.combobox-options { max-height:230px; overflow:auto; padding:5px; }.combobox-options button { width:100%; min-height:38px; padding:7px 9px; display:flex; align-items:center; justify-content:space-between; gap:8px; border-radius:7px; text-align:left; color:#405443; }.combobox-options button:hover,.combobox-options button.is-active { background:#f0f4ee; }.combobox-options p { padding:18px 10px; text-align:center; color:#7a877e; font-size:11px; }
 .workflow-fields small { font-size:11px; }.textarea { min-height:95px; padding:10px; resize:vertical; }
 .permission-picker { border:1px solid #dde2db; padding:15px; display:grid; gap:10px; max-height:320px; overflow:auto; border-radius:9px; }
 .permission-picker legend { padding:0 5px; font-size:12px; }.permission-picker label,.confirm-checkbox { display:flex; gap:9px; align-items:center; font-size:12px; }
