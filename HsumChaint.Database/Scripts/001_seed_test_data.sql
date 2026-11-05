@@ -198,10 +198,10 @@ ON DUPLICATE KEY UPDATE
 INSERT INTO Donor_List
     (id, monastery_space_id, donor_id, donor_name, donation_type, donation_type_value, custom_donation_type, note, amount, quantity, status, status_value, reviewer_id, created_at, reviewed_at, pickup_time, dropoff_time, completed_at)
 VALUES
-    (1, 1, 3, 'Ma Donor One', 'Food', 1, NULL, 'Rice bags for weekly offering.', NULL, 10.00, 'PendingReview', 2, NULL, UTC_TIMESTAMP(), NULL, NULL, NULL, NULL),
-    (2, 1, NULL, 'Anonymous Cash Donor', 'Money', 0, NULL, 'Manual cash donation recorded by admin.', 50000.00, NULL, 'Accepted', 3, 2, UTC_TIMESTAMP(), UTC_TIMESTAMP(), NULL, NULL, NULL),
-    (3, 1, 4, 'Ko Donor Two', 'Medicine', 2, NULL, 'Basic medicine supplies.', NULL, 5.00, 'Scheduled', 4, 2, UTC_TIMESTAMP(), UTC_TIMESTAMP(), DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY), NULL, NULL),
-    (4, 1, 3, 'Ma Donor One', 'Supplies', 4, NULL, 'Cleaning supplies completed donation.', NULL, 3.00, 'Completed', 5, 1, DATE_SUB(UTC_TIMESTAMP(), INTERVAL 7 DAY), DATE_SUB(UTC_TIMESTAMP(), INTERVAL 6 DAY), DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 DAY), NULL, DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 DAY))
+    (1, 1, 3, 'Ma Donor One', 'Food', 1, NULL, 'Rice bags for weekly offering.', NULL, 10.00, 'PendingReview', 0, NULL, UTC_TIMESTAMP(), NULL, NULL, NULL, NULL),
+    (2, 1, NULL, 'Anonymous Cash Donor', 'Money', 0, NULL, 'Manual cash donation recorded by admin.', 50000.00, NULL, 'Accepted', 1, 2, UTC_TIMESTAMP(), UTC_TIMESTAMP(), NULL, NULL, NULL),
+    (3, 1, 4, 'Ko Donor Two', 'Medicine', 2, NULL, 'Basic medicine supplies.', NULL, 5.00, 'Scheduled', 2, 2, UTC_TIMESTAMP(), UTC_TIMESTAMP(), DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY), NULL, NULL),
+    (4, 1, 3, 'Ma Donor One', 'Supplies', 4, NULL, 'Cleaning supplies completed donation.', NULL, 3.00, 'Completed', 3, 1, DATE_SUB(UTC_TIMESTAMP(), INTERVAL 7 DAY), DATE_SUB(UTC_TIMESTAMP(), INTERVAL 6 DAY), DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 DAY), NULL, DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 DAY))
 ON DUPLICATE KEY UPDATE
     monastery_space_id = VALUES(monastery_space_id),
     donor_id = VALUES(donor_id),

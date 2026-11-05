@@ -215,5 +215,27 @@ namespace HsumChaint.API.Features.Donation.Controllers
             var response = await _donationService.GetMonthlyCalendar(currentUserId.Value, query);
             return response.ToActionResult();
         }
+
+        [HttpGet("statuses")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetStatuses()
+        {
+            var response = await _donationService.GetDonationStatuses();
+            return response.ToActionResult();
+        }
+
+        [HttpPut("{id}/status")]
+        [HasPermission(Permissions.Donation.Review)]
+        public async Task<IActionResult> UpdateDonationStatus(int id, UpdateDonationStatusRequestDto request)
+        {
+            var currentUserId = User.GetCurrentUserId();
+            if (!currentUserId.HasValue)
+            {
+                return Unauthorized();
+            }
+
+            var response = await _donationService.UpdateDonationStatus(currentUserId.Value, id, request);
+            return response.ToActionResult();
+        }
     }
 }

@@ -91,7 +91,7 @@ public class AdminApiTests
         }
         var recorded = await Write(HttpMethod.Post, "/api/v1/donations/manual", new { MonasterySpaceId = 10, DonorName = "Walk-in", DonationType = 1, Quantity = 12 });
         var donationId = recorded.GetProperty("data").GetProperty("id").GetInt32();
-        await Write(HttpMethod.Post, $"/api/v1/donations/{donationId}/review", new { Status = 3, Note = "Reviewed by system Admin" });
+        await Write(HttpMethod.Post, $"/api/v1/donations/{donationId}/review", new { Status = (int)DonationStatus.Accepted, Note = "Reviewed by system Admin" });
         await Write(HttpMethod.Put, $"/api/v1/donations/{donationId}/schedule", new { PickupTime = "2026-11-01T02:30:00Z" });
         await Write(HttpMethod.Post, $"/api/v1/donations/{donationId}/complete");
         await Write(HttpMethod.Post, $"/api/v1/donations/{donationId}/cancel", expected: HttpStatusCode.BadRequest);
