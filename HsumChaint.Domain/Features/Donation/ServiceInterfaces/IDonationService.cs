@@ -19,5 +19,7 @@ namespace HsumChaint.Domain.Features.Donation.ServiceInterfaces
         Task<Result<List<DonationDto>>> CreateManualRecurringDonation(int currentUserId, CreateManualRecurringDonationRequestDto request);
         Task<Result<bool>> DeleteDonation(int currentUserId, int donationId);
         Task<Result<MonthlyDonationSummaryDto>> GetMonthlyCalendar(int currentUserId, MonthlyCalendarQueryDto query);
+        Task<Result<List<DonationStatusDto>>> GetDonationStatuses();
+        Task<Result<DonationDto>> UpdateDonationStatus(int currentUserId, int donationId, UpdateDonationStatusRequestDto request);
     }
 }

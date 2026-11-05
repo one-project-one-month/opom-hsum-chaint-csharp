@@ -799,6 +799,73 @@ namespace HsumChaint.Domain.Features.Donation.Services
             return Result<MonthlyDonationSummaryDto>.Success(summary, "Monthly calendar summary retrieved successfully.");
         }
 
+        public Task<Result<List<DonationStatusDto>>> GetDonationStatuses()
+        {
+            var list = new List<DonationStatusDto>
+            {
+                new() { Id = (int)DonationStatus.PendingReview, Name = nameof(DonationStatus.PendingReview), Label = "စောင့်ဆိုင်းဆဲ" },
+                new() { Id = (int)DonationStatus.Accepted, Name = nameof(DonationStatus.Accepted), Label = "လက်ခံပြီး" },
+                new() { Id = (int)DonationStatus.Scheduled, Name = nameof(DonationStatus.Scheduled), Label = "ဆွမ်းချိန် သတ်မှတ်ပြီး" },
+                new() { Id = (int)DonationStatus.Completed, Name = nameof(DonationStatus.Completed), Label = "ကပ်လှူပြီးစီး" },
+                new() { Id = (int)DonationStatus.Rejected, Name = nameof(DonationStatus.Rejected), Label = "လက်မခံနိုင်ပါ" },
+                new() { Id = (int)DonationStatus.Cancelled, Name = nameof(DonationStatus.Cancelled), Label = "ပယ်ဖျက်ပြီး" }
+            };
+
+            return Task.FromResult(Result<List<DonationStatusDto>>.Success(list, "Donation statuses retrieved successfully."));
+        }
+
+        public async Task<Result<DonationDto>> UpdateDonationStatus(int currentUserId, int donationId, UpdateDonationStatusRequestDto request)
+        {
+            if (!Enum.IsDefined(typeof(DonationStatus), request.Status))
+            {
+                return Result<DonationDto>.Failure("Invalid donation status.");
+            }
+
+            var donation = await _dbContext.DonorLists.FindAsync(donationId);
+            if (donation == null)
+            {
+                return Result<DonationDto>.Failure("Donation not found.");
+            }
+
+            var member = await GetMember(currentUserId, donation.MonasterySpaceId ?? 0);
+            if (!await IsSystemAdmin(currentUserId) && !await CanManageDonations(member) && !await CanScheduleDonations(member))
+            {
+                return Result<DonationDto>.Failure("User is not authorized to update status of this donation.");
+            }
+
+            if (donation.StatusValue == DonationStatus.Completed && request.Status != DonationStatus.Completed)
+            {
+                return Result<DonationDto>.Failure("Completed donations cannot be changed to another status.");
+            }
+
+            donation.StatusValue = request.Status;
+            donation.Status = request.Status.ToString();
+
+            if (request.Status == DonationStatus.Completed)
+            {
+                donation.CompletedAt = DateTime.UtcNow;
+            }
+            else if (request.Status is DonationStatus.Accepted or DonationStatus.Rejected)
+            {
+                donation.ReviewerId = currentUserId;
+                donation.ReviewedAt = DateTime.UtcNow;
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Note))
+            {
+                donation.Note = request.Note;
+            }
+
+            await _dbContext.SaveChangesAsync();
+
+            if (donation.DonorId.HasValue)
+            {
+                await NotifyUser(donation.DonorId.Value, $"Your donation status was updated to {request.Status}.", donation.Id);
+            }
+
+            return Result<DonationDto>.Success(MapDonation(donation), "Donation status updated successfully.");
+        }
+
         private async Task<string?> ValidateRecurringRequest(CreateRecurringDonationRequestDto request)
         {
             if (request.StartDate.Year < 2000 || request.StartDate.Year > 2100)

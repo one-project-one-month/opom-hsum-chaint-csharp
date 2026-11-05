@@ -47,6 +47,19 @@ namespace HsumChaint.Domain.Features.Donation.DTOs
         public string? Note { get; set; }
     }
 
+    public class UpdateDonationStatusRequestDto
+    {
+        public DonationStatus Status { get; set; }
+        public string? Note { get; set; }
+    }
+
+    public class DonationStatusDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = null!;
+        public string Label { get; set; } = null!;
+    }
+
     public class ScheduleDonationRequestDto
     {
         public DateTime? PickupTime { get; set; }
