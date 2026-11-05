@@ -81,7 +81,8 @@ namespace HsumChaint.Domain.Features.Notification.Services
                 #endregion
 
                 #region Send Notification
-                if (!string.IsNullOrWhiteSpace(deviceFcmToken))
+                var normalizedDeviceFcmToken = deviceFcmToken.NormalizeOptionalString();
+                if (normalizedDeviceFcmToken != null)
                 {
                     var title = GetTitleForType(requestModel.NotificationType);
 
@@ -91,7 +92,7 @@ namespace HsumChaint.Domain.Features.Notification.Services
                         {"type", requestModel.NotificationType ?? "" }
                     };
 
-                    await _notificationProvider.SendPushAsync(deviceFcmToken, title, requestModel.Message, payloadData);
+                    await _notificationProvider.SendPushAsync(normalizedDeviceFcmToken, title, requestModel.Message, payloadData);
                 }
                 #endregion
                 return Result<CreateNotificationResponseDto>.Success(MapCreateResponse(notification), "Notification added successfully.");
@@ -184,8 +185,7 @@ namespace HsumChaint.Domain.Features.Notification.Services
 
         private static NotificationType ResolveNotificationType(string? value)
         {
-            if (!string.IsNullOrWhiteSpace(value) &&
-                Enum.TryParse<NotificationType>(value.Replace("-", "_"), ignoreCase: true, out var parsedType))
+            if (value.TryParseEnum<NotificationType>(out var parsedType))
             {
                 return parsedType;
             }

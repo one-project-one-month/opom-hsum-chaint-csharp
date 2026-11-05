@@ -8,11 +8,6 @@ using HsumChaint.Shared.Configuration;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.RegularExpressions;
 using UserEntity = HsumChaint.Database.Models.User;
 
@@ -38,9 +33,21 @@ namespace HsumChaint.Domain.Features.Auth.Services
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(reqModel.Name) || string.IsNullOrWhiteSpace(reqModel.PhoneNumber) || string.IsNullOrWhiteSpace(reqModel.Password))
+                if (!reqModel.Name.TryNormalizeRequiredString(out var normalizedName)
+                    || !reqModel.PhoneNumber.TryNormalizeRequiredString(out var normalizedPhoneNumber)
+                    || !reqModel.Password.TryNormalizeRequiredString(out _))
                 {
                     return Result.Failure("Name, phone number and password are required.");
+                }
+
+                reqModel.Name = normalizedName;
+                reqModel.PhoneNumber = normalizedPhoneNumber;
+                reqModel.Email = reqModel.Email.NormalizeOptionalString();
+                reqModel.ContactPhoneNumber = reqModel.ContactPhoneNumber.NormalizeOptionalString();
+
+                if (!reqModel.Email.IsValidEmail())
+                {
+                    return Result.Failure("Email address is invalid.");
                 }
 
                 if (!Regex.IsMatch(reqModel.PhoneNumber, @"^\+?[0-9]+$"))
@@ -48,12 +55,13 @@ namespace HsumChaint.Domain.Features.Auth.Services
                     return Result.Failure("Phone number must contain English digits only.");
                 }
 
-                if (!string.IsNullOrWhiteSpace(reqModel.ContactPhoneNumber) && !Regex.IsMatch(reqModel.ContactPhoneNumber, @"^\+?[0-9]+$"))
+                if (reqModel.ContactPhoneNumber is string contactPhoneNumber
+                    && !Regex.IsMatch(contactPhoneNumber, @"^\+?[0-9]+$"))
                 {
                     return Result.Failure("Contact phone number must contain English digits only.");
                 }
 
-                if (!Regex.IsMatch(reqModel.Password, @"^[\x21-\x7E]+$"))
+                if (!Regex.IsMatch(reqModel.Password!, @"^[\x21-\x7E]+$"))
                 {
                     return Result.Failure("Password must contain English characters and symbols only.");
                 }
@@ -73,7 +81,7 @@ namespace HsumChaint.Domain.Features.Auth.Services
                     return Result.Failure("Role not found.");
                 }
                 UserEntity user = new UserEntity();
-                var hashedPassword = _passwordHasher.HashPassword(user, reqModel.Password);
+                var hashedPassword = _passwordHasher.HashPasswordSafe(user, reqModel.Password!);
 
                 var registerUser = new UserEntity
                 {
@@ -117,12 +125,15 @@ namespace HsumChaint.Domain.Features.Auth.Services
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(reqModel.PhoneNumber) || string.IsNullOrWhiteSpace(reqModel.Password))
+                if (!reqModel.PhoneNumber.TryNormalizeRequiredString(out var normalizedPhoneNumber)
+                    || !reqModel.Password.TryNormalizeRequiredString(out _))
                 {
                     return Result<LoginResponseDto>.Failure("Phone number or password incorrect!");
                 }
 
-                if (!Regex.IsMatch(reqModel.PhoneNumber, @"^\+?[0-9]+$") || !Regex.IsMatch(reqModel.Password, @"^[\x21-\x7E]+$"))
+                reqModel.PhoneNumber = normalizedPhoneNumber;
+
+                if (!Regex.IsMatch(reqModel.PhoneNumber, @"^\+?[0-9]+$") || !Regex.IsMatch(reqModel.Password!, @"^[\x21-\x7E]+$"))
                 {
                     return Result<LoginResponseDto>.Failure("Phone number or password incorrect!");
                 }
@@ -135,14 +146,14 @@ namespace HsumChaint.Domain.Features.Auth.Services
                 }
 
                 UserEntity user = new UserEntity();
-                if (_passwordHasher.VerifyHashedPassword(user, existingUser.Password, reqModel.Password)
+                if (_passwordHasher.VerifyPasswordSafe(user, existingUser.Password, reqModel.Password!)
                     == PasswordVerificationResult.Failed)
                 {
                     return Result<LoginResponseDto>.Failure("Phone number or password incorrect!");
                 }
 
                 var permissions = await _rolePermissionService.GetUserPermissions(existingUser.Id);
-                string Token = this.GenerateToken(existingUser.Id, existingUser.PhoneNumber, existingUser.Role.Name, permissions);
+                string Token = _jwtOptions.GenerateJwtToken(existingUser.Id, existingUser.PhoneNumber, existingUser.Role.Name, permissions);
                 string refreshToken = await this.GenerateAndSaveRefreshToken(new GenerateRefreshTokenDto { UserId = existingUser.Id });
 
                 return Result<LoginResponseDto>.Success(new LoginResponseDto
@@ -180,7 +191,7 @@ namespace HsumChaint.Domain.Features.Auth.Services
                     }
 
                     var permissions = await _rolePermissionService.GetUserPermissions(existingUser.Id);
-                    string Token = this.GenerateToken(existingUser.Id, existingUser.PhoneNumber, existingUser.Role.Name, permissions);
+                    string Token = _jwtOptions.GenerateJwtToken(existingUser.Id, existingUser.PhoneNumber, existingUser.Role.Name, permissions);
                     string refreshToken = await this.GenerateAndSaveRefreshToken(new GenerateRefreshTokenDto { UserId = existingUser.Id });
 
                     return Result<LoginResponseDto>.Success(new LoginResponseDto
@@ -205,41 +216,11 @@ namespace HsumChaint.Domain.Features.Auth.Services
         }
         #endregion
 
-        #region GenerateToken
-        private string GenerateToken(int userId, string phoneNumber, string roleName, List<string> permissions)
-        {
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
-                new Claim(ClaimTypes.MobilePhone, phoneNumber),
-                new Claim(ClaimTypes.Role, roleName)
-            };
-
-            claims.AddRange(permissions.Select(permission => new Claim("permission", permission)));
-
-            var key = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(_jwtOptions.Key ?? string.Empty)
-            );
-
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512);
-
-            var tokenDescriptor = new JwtSecurityToken(
-                    issuer: _jwtOptions.Issuer,
-                    audience: _jwtOptions.Audience,
-                    claims: claims,
-                    expires: DateTime.UtcNow.AddDays(1),
-                    signingCredentials: creds
-                );
-
-            return new JwtSecurityTokenHandler().WriteToken(tokenDescriptor);
-        }
-        #endregion
-
         #region GenerateAndSaveRefreshToken
         public async Task<string> GenerateAndSaveRefreshToken(GenerateRefreshTokenDto reqModel)
         {
-            var refreshToken = this.GenerateRefreshToken();
-            var hashedRefreshToken = HashToken(refreshToken);
+            var refreshToken = 32.GenerateRefreshToken();
+            var hashedRefreshToken = refreshToken.HashToken();
 
             //reqModel.RefreshToken = refreshToken;
             reqModel.ExpiresAt = DateTime.UtcNow.AddDays(7);
@@ -270,25 +251,13 @@ namespace HsumChaint.Domain.Features.Auth.Services
         }
         #endregion
 
-        #region GenerateRefreshToken
-        private string GenerateRefreshToken()
-        {
-            var randomNumber = new byte[32];
-            using var rng = RandomNumberGenerator.Create();
-
-            rng.GetBytes(randomNumber);
-
-            return Convert.ToBase64String(randomNumber);
-        }
-        #endregion
-
         #region IsValidRefreshToken
         private async Task<bool> IsValidRefreshToken(int userId, string refreshToken)
         {
-            if (string.IsNullOrWhiteSpace(refreshToken))
+            if (!refreshToken.TryNormalizeRequiredString(out var normalizedRefreshToken))
                 return false;
 
-            var hashedRefreshToken = HashToken(refreshToken);
+            var hashedRefreshToken = normalizedRefreshToken.HashToken();
 
             var tokenModel = await _dbContext.RefreshTokens
                 .FirstOrDefaultAsync(x => x.UserId == userId);
@@ -300,13 +269,5 @@ namespace HsumChaint.Domain.Features.Auth.Services
         }
         #endregion
 
-        #region HashToken
-        private static string HashToken(string token)
-        {
-            using var sha256 = SHA256.Create();
-            var hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(token));
-            return Convert.ToHexString(hashBytes); 
-        }
-        #endregion
     }
 }

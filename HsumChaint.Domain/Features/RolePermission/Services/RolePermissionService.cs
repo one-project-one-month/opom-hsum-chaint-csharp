@@ -23,7 +23,7 @@ public class RolePermissionService(AppDbContext db) : IRolePermissionService
     {
         var pageNumber = pagination?.PageNumber ?? 1;
         var pageSize = pagination?.PageSize ?? 10;
-        if (pageNumber < 1 || pageSize < 1 || ((long)pageNumber - 1) * pageSize > int.MaxValue)
+        if (!pageNumber.TryGetPaginationOffset(pageSize, out var offset))
         {
             return PagedResult<RoleDto>.Failure("Page number and page size must be positive and within the supported range.");
         }
@@ -31,7 +31,7 @@ public class RolePermissionService(AppDbContext db) : IRolePermissionService
         var query = RolesWithPermissions.AsNoTracking();
         var totalCount = await query.CountAsync();
         var roles = (await query.OrderBy(r => r.Name).ThenBy(r => r.Id)
-            .Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync()).Select(Map).ToList();
+            .Skip(offset).Take(pageSize).ToListAsync()).Select(Map).ToList();
         return PagedResult<RoleDto>.Success(roles, new Pagination(pageNumber, pageSize, totalCount), "Roles retrieved successfully.");
     }
 
@@ -45,7 +45,7 @@ public class RolePermissionService(AppDbContext db) : IRolePermissionService
     {
         var error = await Validate(request.Name, request.PermissionIds);
         if (error != null) return Result<RoleDto>.Failure(error);
-        var role = new Role { Name = request.Name.Trim() };
+        var role = new Role { Name = request.Name.NormalizeOptionalString()! };
         foreach (var id in request.PermissionIds.Distinct())
             role.RolePermissions.Add(new RolePermissionEntity { PermissionId = id });
         db.Roles.Add(role);
@@ -59,9 +59,10 @@ public class RolePermissionService(AppDbContext db) : IRolePermissionService
         if (role == null) return Result<RoleDto>.Failure("Role not found.");
         var error = await Validate(request.Name, request.PermissionIds, id);
         if (error != null) return Result<RoleDto>.Failure(error);
-        if (IsAdmin(role) && (request.Name.Trim() != role.Name || await StripsAdminPermissions(role, request.PermissionIds)))
+        var normalizedName = request.Name.NormalizeOptionalString()!;
+        if (IsAdmin(role) && (normalizedName != role.Name || await StripsAdminPermissions(role, request.PermissionIds)))
             return Result<RoleDto>.Failure("The system Admin role cannot be renamed or have permissions removed.");
-        role.Name = request.Name.Trim();
+        role.Name = normalizedName;
         ReplacePermissions(role, request.PermissionIds);
         await db.SaveChangesAsync();
         return await GetRole(id);
@@ -83,7 +84,7 @@ public class RolePermissionService(AppDbContext db) : IRolePermissionService
     {
         var pageNumber = pagination?.PageNumber ?? 1;
         var pageSize = pagination?.PageSize ?? 10;
-        if (pageNumber < 1 || pageSize < 1 || ((long)pageNumber - 1) * pageSize > int.MaxValue)
+        if (!pageNumber.TryGetPaginationOffset(pageSize, out var offset))
         {
             return PagedResult<PermissionDto>.Failure("Page number and page size must be positive and within the supported range.");
         }
@@ -91,7 +92,7 @@ public class RolePermissionService(AppDbContext db) : IRolePermissionService
         var query = db.Permissions.AsNoTracking().Where(p => !p.IsDeleted);
         var totalCount = await query.CountAsync();
         var permissions = await query.OrderBy(p => p.Name).ThenBy(p => p.Id)
-            .Skip((pageNumber - 1) * pageSize).Take(pageSize)
+            .Skip(offset).Take(pageSize)
             .Select(p => new PermissionDto { Id = p.Id, Name = p.Name }).ToListAsync();
         return PagedResult<PermissionDto>.Success(permissions, new Pagination(pageNumber, pageSize, totalCount), "Permissions retrieved successfully.");
     }
@@ -118,8 +119,8 @@ public class RolePermissionService(AppDbContext db) : IRolePermissionService
 
     private async Task<string?> Validate(string name, List<int>? ids, int? roleId = null)
     {
-        if (string.IsNullOrWhiteSpace(name) || name.Trim().Length > 50) return "Role name is required and must not exceed 50 characters.";
-        var normalized = name.Trim().ToUpperInvariant();
+        if (!name.TryNormalizeRequiredString(out var normalizedName) || normalizedName.Length > 50) return "Role name is required and must not exceed 50 characters.";
+        var normalized = normalizedName.ToUpperInvariant();
         if (await db.Roles.AnyAsync(r => r.Id != roleId && r.Name.ToUpper() == normalized)) return "Role name already exists.";
         if (!await ValidPermissions(ids)) return "One or more permissions are invalid or inactive.";
         return null;
@@ -157,7 +158,7 @@ public class RolePermissionService(AppDbContext db) : IRolePermissionService
     {
         var pageNumber = pagination?.PageNumber ?? 1;
         var pageSize = pagination?.PageSize ?? 10;
-        if (pageNumber < 1 || pageSize < 1 || ((long)pageNumber - 1) * pageSize > int.MaxValue)
+        if (!pageNumber.TryGetPaginationOffset(pageSize, out var offset))
         {
             return PagedResult<SpaceRoleDto>.Failure("Page number and page size must be positive and within the supported range.");
         }
@@ -165,7 +166,7 @@ public class RolePermissionService(AppDbContext db) : IRolePermissionService
         var query = SpaceRolesWithPermissions.AsNoTracking();
         var totalCount = await query.CountAsync();
         var roles = (await query.OrderBy(r => r.Id)
-            .Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync()).Select(MapSpaceRole).ToList();
+            .Skip(offset).Take(pageSize).ToListAsync()).Select(MapSpaceRole).ToList();
         return PagedResult<SpaceRoleDto>.Success(roles, new Pagination(pageNumber, pageSize, totalCount), "Space roles retrieved successfully.");
     }
 
@@ -182,8 +183,8 @@ public class RolePermissionService(AppDbContext db) : IRolePermissionService
 
         var role = new SpaceRole
         {
-            Name = request.Name.Trim(),
-            Description = request.Description?.Trim()
+            Name = request.Name.NormalizeOptionalString()!,
+            Description = request.Description.NormalizeOptionalString()
         };
 
         if (request.PermissionIds != null)
@@ -207,14 +208,14 @@ public class RolePermissionService(AppDbContext db) : IRolePermissionService
 
         if (IsOwnerSpaceRole(role))
         {
-            if (request.Name.Trim() != role.Name)
+            if (request.Name.NormalizeOptionalString() != role.Name)
                 return Result<SpaceRoleDto>.Failure("The Space Owner role cannot be renamed.");
             if (request.PermissionIds != null && await StripsOwnerSpacePermissions(role, request.PermissionIds))
                 return Result<SpaceRoleDto>.Failure("The Space Owner role cannot have permissions removed.");
         }
 
-        role.Name = request.Name.Trim();
-        role.Description = request.Description?.Trim();
+        role.Name = request.Name.NormalizeOptionalString()!;
+        role.Description = request.Description.NormalizeOptionalString();
 
         if (request.PermissionIds != null)
         {
@@ -248,7 +249,7 @@ public class RolePermissionService(AppDbContext db) : IRolePermissionService
     {
         var pageNumber = pagination?.PageNumber ?? 1;
         var pageSize = pagination?.PageSize ?? 10;
-        if (pageNumber < 1 || pageSize < 1 || ((long)pageNumber - 1) * pageSize > int.MaxValue)
+        if (!pageNumber.TryGetPaginationOffset(pageSize, out var offset))
         {
             return PagedResult<SpacePermissionDto>.Failure("Page number and page size must be positive and within the supported range.");
         }
@@ -256,7 +257,7 @@ public class RolePermissionService(AppDbContext db) : IRolePermissionService
         var query = db.SpacePermissions.AsNoTracking().Where(p => !p.IsDeleted);
         var totalCount = await query.CountAsync();
         var permissions = await query.OrderBy(p => p.Id)
-            .Skip((pageNumber - 1) * pageSize).Take(pageSize)
+            .Skip(offset).Take(pageSize)
             .Select(p => new SpacePermissionDto { Id = p.Id, Name = p.Name, Description = p.Description }).ToListAsync();
         return PagedResult<SpacePermissionDto>.Success(permissions, new Pagination(pageNumber, pageSize, totalCount), "Space permissions retrieved successfully.");
     }
@@ -282,9 +283,9 @@ public class RolePermissionService(AppDbContext db) : IRolePermissionService
 
     private async Task<string?> ValidateSpaceRole(string name, List<int>? ids, int? roleId = null)
     {
-        if (string.IsNullOrWhiteSpace(name) || name.Trim().Length > 50)
+        if (!name.TryNormalizeRequiredString(out var normalizedName) || normalizedName.Length > 50)
             return "Role name is required and must not exceed 50 characters.";
-        var normalized = name.Trim().ToUpperInvariant();
+        var normalized = normalizedName.ToUpperInvariant();
         if (await db.SpaceRoles.AnyAsync(r => r.Id != roleId && !r.IsDeleted && r.Name.ToUpper() == normalized))
             return "Space role name already exists.";
         if (ids != null && !await ValidSpacePermissions(ids))

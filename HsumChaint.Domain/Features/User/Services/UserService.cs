@@ -23,7 +23,7 @@ namespace HsumChaint.Domain.Features.User.Services
         {
             var pageNumber = pagination?.PageNumber ?? 1;
             var pageSize = pagination?.PageSize ?? 10;
-            if (pageNumber < 1 || pageSize < 1 || ((long)pageNumber - 1) * pageSize > int.MaxValue)
+            if (!pageNumber.TryGetPaginationOffset(pageSize, out var offset))
             {
                 return PagedResult<UserDto>.Failure("Page number and page size must be positive and within the supported range.");
             }
@@ -33,7 +33,7 @@ namespace HsumChaint.Domain.Features.User.Services
                 var query = _context.Users.Include(u => u.Role).AsNoTracking().Where(u => u.IsDeleted == false);
                 var totalCount = await query.CountAsync();
                 var items = await query.OrderBy(x => x.Id)
-                    .Skip((pageNumber - 1) * pageSize)
+                    .Skip(offset)
                     .Take(pageSize)
                     .ToListAsync();
                 var data = items.Select(MapToDto).ToList();
@@ -119,7 +119,7 @@ namespace HsumChaint.Domain.Features.User.Services
         {
             var pageNumber = pagination?.PageNumber ?? 1;
             var pageSize = pagination?.PageSize ?? 10;
-            if (pageNumber < 1 || pageSize < 1 || ((long)pageNumber - 1) * pageSize > int.MaxValue)
+            if (!pageNumber.TryGetPaginationOffset(pageSize, out var offset))
             {
                 return PagedResult<InvitationDto>.Failure("Page number and page size must be positive and within the supported range.");
             }
@@ -135,7 +135,7 @@ namespace HsumChaint.Domain.Features.User.Services
                     .Where(i => i.InvitedUserId == id);
                 var totalCount = await query.CountAsync();
                 var items = await query.OrderBy(x => x.Id)
-                    .Skip((pageNumber - 1) * pageSize)
+                    .Skip(offset)
                     .Take(pageSize)
                     .ToListAsync();
                 var data = items.Select(MapInvitation).ToList();
@@ -150,7 +150,7 @@ namespace HsumChaint.Domain.Features.User.Services
         public async Task<CursorPagedResult<InvitationDto>> GetUserInvitationFeed(int id, CursorPaginationRequest? pagination = null)
         {
             var pageSize = pagination?.PageSize ?? 15;
-            if (pageSize < 1) pageSize = 15;
+            if (!pageSize.IsPositive()) pageSize = 15;
 
             try
             {
@@ -193,7 +193,7 @@ namespace HsumChaint.Domain.Features.User.Services
         {
             var pageNumber = pagination?.PageNumber ?? 1;
             var pageSize = pagination?.PageSize ?? 10;
-            if (pageNumber < 1 || pageSize < 1 || ((long)pageNumber - 1) * pageSize > int.MaxValue)
+            if (!pageNumber.TryGetPaginationOffset(pageSize, out var offset))
             {
                 return PagedResult<InvitationDto>.Failure("Page number and page size must be positive and within the supported range.");
             }
@@ -209,7 +209,7 @@ namespace HsumChaint.Domain.Features.User.Services
                     .Where(i => i.InvitedById == id);
                 var totalCount = await query.CountAsync();
                 var items = await query.OrderBy(x => x.Id)
-                    .Skip((pageNumber - 1) * pageSize)
+                    .Skip(offset)
                     .Take(pageSize)
                     .ToListAsync();
                 var data = items.Select(MapInvitation).ToList();
@@ -227,7 +227,7 @@ namespace HsumChaint.Domain.Features.User.Services
         {
             var pageNumber = pagination?.PageNumber ?? 1;
             var pageSize = pagination?.PageSize ?? 10;
-            if (pageNumber < 1 || pageSize < 1 || ((long)pageNumber - 1) * pageSize > int.MaxValue)
+            if (!pageNumber.TryGetPaginationOffset(pageSize, out var offset))
             {
                 return PagedResult<NotificationDto>.Failure("Page number and page size must be positive and within the supported range.");
             }
@@ -237,7 +237,7 @@ namespace HsumChaint.Domain.Features.User.Services
                 var query = _context.Notifications.AsNoTracking().Where(n => n.UserId == id && n.IsDeleted == false);
                 var totalCount = await query.CountAsync();
                 var items = await query.OrderBy(x => x.Id)
-                    .Skip((pageNumber - 1) * pageSize)
+                    .Skip(offset)
                     .Take(pageSize)
                     .ToListAsync();
                 var data = items.Select(MapNotification).ToList();
@@ -252,7 +252,7 @@ namespace HsumChaint.Domain.Features.User.Services
         public async Task<CursorPagedResult<NotificationDto>> GetUserNotificationFeed(int id, CursorPaginationRequest? pagination = null)
         {
             var pageSize = pagination?.PageSize ?? 15;
-            if (pageSize < 1) pageSize = 15;
+            if (!pageSize.IsPositive()) pageSize = 15;
 
             try
             {
@@ -588,17 +588,28 @@ namespace HsumChaint.Domain.Features.User.Services
                 return false;
             }
 
-            if (string.IsNullOrEmpty(user.Name))
+            if (!user.Name.TryNormalizeRequiredString(out var normalizedName))
             {
                 errorMessage = "User name cannot be null or empty.";
                 return false;
             }
 
-            if (string.IsNullOrEmpty(user.PhoneNumber))
+            if (!user.PhoneNumber.TryNormalizeRequiredString(out var normalizedPhoneNumber))
             {
                 errorMessage = "User phone number cannot be null or empty.";
                 return false;
             }
+
+            user.Email = user.Email.NormalizeOptionalString();
+            if (!user.Email.IsValidEmail())
+            {
+                errorMessage = "User email address is invalid.";
+                return false;
+            }
+
+            user.Name = normalizedName;
+            user.PhoneNumber = normalizedPhoneNumber;
+            user.ContactPhoneNumber = user.ContactPhoneNumber.NormalizeOptionalString();
 
             return true;
         }

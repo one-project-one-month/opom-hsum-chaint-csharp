@@ -85,7 +85,8 @@ namespace HsumChaint.Domain.Features.Donation.Services
                 return Result<DonationDto>.Failure("Donor user not found.");
             }
 
-            if (!request.DonorId.HasValue && string.IsNullOrWhiteSpace(request.DonorName))
+            request.DonorName = request.DonorName.NormalizeOptionalString();
+            if (!request.DonorId.HasValue && request.DonorName == null)
             {
                 return Result<DonationDto>.Failure("Donor name is required for manual donations without a donor account.");
             }
@@ -129,9 +130,13 @@ namespace HsumChaint.Domain.Features.Donation.Services
         {
             var pageNumber = query.PageNumber;
             var pageSize = query.PageSize;
-            if (pageNumber < 1 || pageSize < 1 || ((long)pageNumber - 1) * pageSize > int.MaxValue)
+            if (!pageNumber.TryGetPaginationOffset(pageSize, out var offset))
             {
                 return PagedResult<DonationDto>.Failure("Page number and page size must be positive and within the supported range.");
+            }
+            if (!query.FromDate.IsValidDateRange(query.ToDate))
+            {
+                return PagedResult<DonationDto>.Failure("From date must be before or equal to to date.");
             }
             IQueryable<DonationEntity> donations = _dbContext.DonorLists.AsNoTracking();
 
@@ -181,7 +186,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
             var donationEntities = await donations
                 .OrderBy(x => x.CreatedAt)
                 .ThenBy(x => x.Id)
-                .Skip((pageNumber - 1) * pageSize)
+                .Skip(offset)
                 .Take(pageSize)
                 .ToListAsync();
             var list = donationEntities.Select(MapDonation).ToList();
@@ -191,7 +196,11 @@ namespace HsumChaint.Domain.Features.Donation.Services
 
         public async Task<CursorPagedResult<DonationDto>> GetDonationsFeed(int currentUserId, DonationFeedQueryDto query)
         {
-            var pageSize = query.PageSize < 1 ? 15 : query.PageSize;
+            var pageSize = query.PageSize.IsPositive() ? query.PageSize : 15;
+            if (!query.FromDate.IsValidDateRange(query.ToDate))
+            {
+                return CursorPagedResult<DonationDto>.Failure("From date must be before or equal to to date.");
+            }
             IQueryable<DonationEntity> donations = _dbContext.DonorLists.AsNoTracking();
 
             if (query.MonasterySpaceId.HasValue)
@@ -304,7 +313,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
             donation.Status = request.Status.ToString();
             donation.ReviewerId = currentUserId;
             donation.ReviewedAt = DateTime.UtcNow;
-            donation.Note = string.IsNullOrWhiteSpace(request.Note) ? donation.Note : request.Note;
+            donation.Note = request.Note.NormalizeOptionalString() ?? donation.Note;
             await _dbContext.SaveChangesAsync();
 
             if (donation.DonorId.HasValue)
@@ -418,7 +427,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
 
         public async Task<Result<List<DonationDto>>> CreateBatchManualDonations(int currentUserId, CreateBatchDonationRequestDto request)
         {
-            if (request.MonasterySpaceId <= 0)
+            if (!request.MonasterySpaceId.IsPositive())
             {
                 return Result<List<DonationDto>>.Failure("Monastery space id is required.");
             }
@@ -477,7 +486,8 @@ namespace HsumChaint.Domain.Features.Donation.Services
                     }
                 }
 
-                if (!item.DonorId.HasValue && string.IsNullOrWhiteSpace(item.DonorName))
+                item.DonorName = item.DonorName.NormalizeOptionalString();
+                if (!item.DonorId.HasValue && item.DonorName == null)
                 {
                     return Result<List<DonationDto>>.Failure("Donor name is required for manual donations without a donor account.");
                 }
@@ -538,10 +548,16 @@ namespace HsumChaint.Domain.Features.Donation.Services
 
                 foreach (var d in donorDonations)
                 {
-                    if (activeDonors.TryGetValue(d.DonorId!.Value, out var donorUser) && !string.IsNullOrWhiteSpace(donorUser.FcmToken))
+                    if (activeDonors.TryGetValue(d.DonorId!.Value, out var donorUser))
                     {
+                        var normalizedFcmToken = donorUser.FcmToken.NormalizeOptionalString();
+                        if (normalizedFcmToken == null)
+                        {
+                            continue;
+                        }
+
                         await _notificationProvider.SendPushAsync(
-                            donorUser.FcmToken,
+                            normalizedFcmToken,
                             "Donation Update",
                             "Your donation has been recorded by the monastery.",
                             new Dictionary<string, string>
@@ -584,7 +600,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
                 DateTime? pickup = request.PickupTimeOfDay.HasValue ? targetDate.Add(request.PickupTimeOfDay.Value).AddMinutes(-request.TimeZoneOffsetMinutes) : null;
                 DateTime? dropoff = request.DropoffTimeOfDay.HasValue ? targetDate.Add(request.DropoffTimeOfDay.Value).AddMinutes(-request.TimeZoneOffsetMinutes) : null;
 
-                var seriesNote = string.IsNullOrWhiteSpace(request.Note)
+                var seriesNote = request.Note == null
                     ? $"[Series: {seriesTag}] ({i + 1}/{request.MonthsCount})"
                     : $"[Series: {seriesTag}] ({i + 1}/{request.MonthsCount}) - {request.Note}";
 
@@ -641,7 +657,8 @@ namespace HsumChaint.Domain.Features.Donation.Services
                 return Result<List<DonationDto>>.Failure("Donor user not found.");
             }
 
-            if (!request.DonorId.HasValue && string.IsNullOrWhiteSpace(request.DonorName))
+            request.DonorName = request.DonorName.NormalizeOptionalString();
+            if (!request.DonorId.HasValue && request.DonorName == null)
             {
                 return Result<List<DonationDto>>.Failure("Donor name is required for manual donations without a donor account.");
             }
@@ -661,7 +678,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
 
                 var initialStatus = pickup.HasValue || dropoff.HasValue ? DonationStatus.Scheduled : DonationStatus.Accepted;
 
-                var seriesNote = string.IsNullOrWhiteSpace(request.Note)
+                var seriesNote = request.Note == null
                     ? $"[Series: {seriesTag}] ({i + 1}/{request.MonthsCount})"
                     : $"[Series: {seriesTag}] ({i + 1}/{request.MonthsCount}) - {request.Note}";
 
@@ -727,12 +744,12 @@ namespace HsumChaint.Domain.Features.Donation.Services
 
         public async Task<Result<MonthlyDonationSummaryDto>> GetMonthlyCalendar(int currentUserId, MonthlyCalendarQueryDto query)
         {
-            if (query.Year < 2000 || query.Year > 2100)
+            if (!query.Year.IsInInclusiveRange(2000, 2100))
             {
                 return Result<MonthlyDonationSummaryDto>.Failure("Invalid year.");
             }
 
-            if (query.Month < 1 || query.Month > 12)
+            if (!query.Month.IsInInclusiveRange(1, 12))
             {
                 return Result<MonthlyDonationSummaryDto>.Failure("Invalid month.");
             }
@@ -816,7 +833,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
 
         public async Task<Result<DonationDto>> UpdateDonationStatus(int currentUserId, int donationId, UpdateDonationStatusRequestDto request)
         {
-            if (!Enum.IsDefined(typeof(DonationStatus), request.Status))
+            if (!request.Status.IsDefinedEnum())
             {
                 return Result<DonationDto>.Failure("Invalid donation status.");
             }
@@ -851,9 +868,10 @@ namespace HsumChaint.Domain.Features.Donation.Services
                 donation.ReviewedAt = DateTime.UtcNow;
             }
 
-            if (!string.IsNullOrWhiteSpace(request.Note))
+            var normalizedNote = request.Note.NormalizeOptionalString();
+            if (normalizedNote != null)
             {
-                donation.Note = request.Note;
+                donation.Note = normalizedNote;
             }
 
             await _dbContext.SaveChangesAsync();
@@ -868,36 +886,38 @@ namespace HsumChaint.Domain.Features.Donation.Services
 
         private async Task<string?> ValidateRecurringRequest(CreateRecurringDonationRequestDto request)
         {
-            if (request.StartDate.Year < 2000 || request.StartDate.Year > 2100)
+            if (!request.StartDate.Year.IsInInclusiveRange(2000, 2100))
                 return "Start date must be between 2000 and 2100.";
 
             if (request.PickupTimeOfDay < TimeSpan.Zero || request.PickupTimeOfDay >= TimeSpan.FromDays(1)
                 || request.DropoffTimeOfDay < TimeSpan.Zero || request.DropoffTimeOfDay >= TimeSpan.FromDays(1))
                 return "Pickup and dropoff times must be within a calendar day.";
 
-            if (request.MonasterySpaceId <= 0)
+            if (!request.MonasterySpaceId.IsPositive())
                 return "Monastery space id is required.";
 
             var monasteryExists = await _dbContext.MonasterySpaces.AnyAsync(x => x.Id == request.MonasterySpaceId && !x.IsDeleted);
             if (!monasteryExists)
                 return "Monastery not found.";
 
-            if (request.DayOfMonth < 1 || request.DayOfMonth > 31)
+            if (!request.DayOfMonth.IsInInclusiveRange(1, 31))
                 return "Day of month must be between 1 and 31.";
 
-            if (request.TimeZoneOffsetMinutes < -840 || request.TimeZoneOffsetMinutes > 840)
+            if (!request.TimeZoneOffsetMinutes.IsInInclusiveRange(-840, 840))
                 return "Invalid time zone offset.";
 
-            if (request.Amount < 0 || request.Quantity < 0)
+            if (!request.Amount.IsNullOrNonNegative() || !request.Quantity.IsNullOrNonNegative())
                 return "Donation amount and quantity cannot be negative.";
 
-            if (!Enum.IsDefined(request.DonationType))
+            if (!request.DonationType.IsDefinedEnum())
                 return "Invalid donation type.";
 
-            if (request.MonthsCount < 1 || request.MonthsCount > 24)
+            if (!request.MonthsCount.IsInInclusiveRange(1, 24))
                 return "Months count must be between 1 and 24.";
 
-            if (request.DonationType == DonationType.Other && string.IsNullOrWhiteSpace(request.CustomDonationType))
+            request.CustomDonationType = request.CustomDonationType.NormalizeOptionalString();
+            request.Note = request.Note.NormalizeOptionalString();
+            if (request.DonationType == DonationType.Other && request.CustomDonationType == null)
                 return "Custom donation type is required when donation type is Other.";
 
             return null;
@@ -905,17 +925,25 @@ namespace HsumChaint.Domain.Features.Donation.Services
 
         private static string? ValidateDonationFields(CreateDonationRequestDto request)
         {
-            if (request.DonationType == DonationType.Other && string.IsNullOrWhiteSpace(request.CustomDonationType))
+            request.CustomDonationType = request.CustomDonationType.NormalizeOptionalString();
+            request.Note = request.Note.NormalizeOptionalString();
+
+            if (!request.DonationType.IsDefinedEnum())
+            {
+                return "Invalid donation type.";
+            }
+
+            if (request.DonationType == DonationType.Other && request.CustomDonationType == null)
             {
                 return "Custom donation type is required when donation type is Other.";
             }
 
-            if (request.Amount.HasValue && request.Amount.Value < 0)
+            if (!request.Amount.IsNullOrNonNegative())
             {
                 return "Donation amount cannot be negative.";
             }
 
-            if (request.Quantity.HasValue && request.Quantity.Value < 0)
+            if (!request.Quantity.IsNullOrNonNegative())
             {
                 return "Donation quantity cannot be negative.";
             }
@@ -925,7 +953,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
 
         private async Task<Result<DonationDto>?> ValidateDonationRequest(CreateDonationRequestDto request)
         {
-            if (request.MonasterySpaceId <= 0)
+            if (!request.MonasterySpaceId.IsPositive())
             {
                 return Result<DonationDto>.Failure("Monastery space id is required.");
             }
@@ -1008,10 +1036,11 @@ namespace HsumChaint.Domain.Features.Donation.Services
 
             foreach (var user in users)
             {
-                if (!string.IsNullOrWhiteSpace(user.FcmToken))
+                var normalizedFcmToken = user.FcmToken.NormalizeOptionalString();
+                if (normalizedFcmToken != null)
                 {
                     await _notificationProvider.SendPushAsync(
-                        user.FcmToken,
+                        normalizedFcmToken,
                         "Donation Update",
                         message,
                         new Dictionary<string, string>

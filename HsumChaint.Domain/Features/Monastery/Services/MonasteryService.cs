@@ -19,7 +19,7 @@ namespace HsumChaint.Domain.Features.Monastery.Services
 
         public async Task<Result<MonasterySpaceDto>> CreateMonastery(int currentUserId, CreateMonasteryRequestDto request)
         {
-            if (string.IsNullOrWhiteSpace(request.MonasteryName))
+            if (!request.MonasteryName.TryNormalizeRequiredString(out var monasteryName))
             {
                 return Result<MonasterySpaceDto>.Failure("Monastery name is required.");
             }
@@ -38,9 +38,9 @@ namespace HsumChaint.Domain.Features.Monastery.Services
 
             var monastery = new MonasterySpace
             {
-                MonasteryName = request.MonasteryName,
-                Description = request.Description,
-                Address = request.Address,
+                MonasteryName = monasteryName,
+                Description = request.Description.NormalizeOptionalString(),
+                Address = request.Address.NormalizeOptionalString(),
                 CreatedById = currentUserId
             };
 
@@ -74,17 +74,18 @@ namespace HsumChaint.Domain.Features.Monastery.Services
                 return Result<MonasterySpaceDto>.Failure("Monastery not found.");
             }
 
-            if (!string.IsNullOrWhiteSpace(request.MonasteryName))
+            var monasteryName = request.MonasteryName.NormalizeOptionalString();
+            if (monasteryName != null)
             {
-                monastery.MonasteryName = request.MonasteryName;
+                monastery.MonasteryName = monasteryName;
             }
             if (request.Description != null)
             {
-                monastery.Description = request.Description;
+                monastery.Description = request.Description.NormalizeOptionalString();
             }
             if (request.Address != null)
             {
-                monastery.Address = request.Address;
+                monastery.Address = request.Address.NormalizeOptionalString();
             }
             await _dbContext.SaveChangesAsync();
 
@@ -130,9 +131,9 @@ namespace HsumChaint.Domain.Features.Monastery.Services
 
         public async Task<PagedResult<MonasterySpaceDto>> GetMonasteries(GetMonasteriesRequestDto request)
         {
-            var pageNumber = request.PageNumber < 1 ? 1 : request.PageNumber;
-            var pageSize = request.PageSize < 1 ? 10 : request.PageSize;
-            if (((long)pageNumber - 1) * pageSize > int.MaxValue)
+            var pageNumber = request.PageNumber.IsPositive() ? request.PageNumber : 1;
+            var pageSize = request.PageSize.IsPositive() ? request.PageSize : 10;
+            if (!pageNumber.TryGetPaginationOffset(pageSize, out var offset))
             {
                 return PagedResult<MonasterySpaceDto>.Failure("Page number and page size must be positive and within the supported range.");
             }
@@ -140,7 +141,7 @@ namespace HsumChaint.Domain.Features.Monastery.Services
             var query = ActiveMonasteries.AsNoTracking();
             var totalCount = await query.CountAsync();
             var monasteries = await query.OrderBy(x => x.Id)
-                .Skip((pageNumber - 1) * pageSize)
+                .Skip(offset)
                 .Take(pageSize)
                 .Select(x => new MonasterySpaceDto
                 {
@@ -157,25 +158,25 @@ namespace HsumChaint.Domain.Features.Monastery.Services
 
         public async Task<PagedResult<MonasterySpaceDto>> SearchMonasteries(SearchMonasteriesRequestDto request)
         {
-            var pageNumber = request.PageNumber < 1 ? 1 : request.PageNumber;
-            var pageSize = request.PageSize < 1 ? 10 : request.PageSize;
-            if (((long)pageNumber - 1) * pageSize > int.MaxValue)
+            var pageNumber = request.PageNumber.IsPositive() ? request.PageNumber : 1;
+            var pageSize = request.PageSize.IsPositive() ? request.PageSize : 10;
+            if (!pageNumber.TryGetPaginationOffset(pageSize, out var offset))
             {
                 return PagedResult<MonasterySpaceDto>.Failure("Page number and page size must be positive and within the supported range.");
             }
 
             var query = ActiveMonasteries.AsNoTracking();
 
-            if (!string.IsNullOrWhiteSpace(request.Keyword))
+            var term = request.Keyword.NormalizeOptionalString();
+            if (term != null)
             {
-                var term = request.Keyword.Trim();
                 query = query.Where(x => (x.MonasteryName != null && x.MonasteryName.Contains(term)) ||
                                          (x.Address != null && x.Address.Contains(term)));
             }
 
             var totalCount = await query.CountAsync();
             var monasteries = await query.OrderBy(x => x.Id)
-                .Skip((pageNumber - 1) * pageSize)
+                .Skip(offset)
                 .Take(pageSize)
                 .Select(x => new MonasterySpaceDto
                 {
@@ -194,7 +195,7 @@ namespace HsumChaint.Domain.Features.Monastery.Services
         {
             var pageNumber = pagination?.PageNumber ?? 1;
             var pageSize = pagination?.PageSize ?? 10;
-            if (pageNumber < 1 || pageSize < 1 || ((long)pageNumber - 1) * pageSize > int.MaxValue)
+            if (!pageNumber.TryGetPaginationOffset(pageSize, out var offset))
             {
                 return PagedResult<MonasterySpaceDto>.Failure("Page number and page size must be positive and within the supported range.");
             }
@@ -218,13 +219,13 @@ namespace HsumChaint.Domain.Features.Monastery.Services
 
             var totalCount = await query.CountAsync();
             var monasteries = await query.OrderBy(x => x.Id)
-                .Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync();
+                .Skip(offset).Take(pageSize).ToListAsync();
             return PagedResult<MonasterySpaceDto>.Success(monasteries, new Pagination(pageNumber, pageSize, totalCount), "Monasteries retrieved successfully.");
         }
 
         public async Task<CursorPagedResult<MonasterySpaceDto>> GetMonasteriesFeed(CursorPaginationRequest request)
         {
-            var pageSize = request.PageSize < 1 ? 15 : request.PageSize;
+            var pageSize = request.PageSize.IsPositive() ? request.PageSize : 15;
 
             var query = ActiveMonasteries.AsNoTracking();
             if (request.LastId.HasValue && request.LastId.Value > 0)
@@ -258,12 +259,12 @@ namespace HsumChaint.Domain.Features.Monastery.Services
 
         public async Task<CursorPagedResult<MonasterySpaceDto>> SearchMonasteriesFeed(SearchMonasteriesFeedRequestDto request)
         {
-            var pageSize = request.PageSize < 1 ? 15 : request.PageSize;
+            var pageSize = request.PageSize.IsPositive() ? request.PageSize : 15;
 
             var query = ActiveMonasteries.AsNoTracking();
-            if (!string.IsNullOrWhiteSpace(request.Keyword))
+            var term = request.Keyword.NormalizeOptionalString();
+            if (term != null)
             {
-                var term = request.Keyword.Trim();
                 query = query.Where(x => (x.MonasteryName != null && x.MonasteryName.Contains(term)) ||
                                          (x.Address != null && x.Address.Contains(term)));
             }
@@ -299,7 +300,7 @@ namespace HsumChaint.Domain.Features.Monastery.Services
 
         public async Task<CursorPagedResult<MonasterySpaceDto>> GetMyMonasteriesFeed(int currentUserId, CursorPaginationRequest request)
         {
-            var pageSize = request.PageSize < 1 ? 15 : request.PageSize;
+            var pageSize = request.PageSize.IsPositive() ? request.PageSize : 15;
 
             var query = from member in _dbContext.MonasteryMembers.AsNoTracking()
                         join monastery in ActiveMonasteries.AsNoTracking()
@@ -460,9 +461,11 @@ namespace HsumChaint.Domain.Features.Monastery.Services
 
         public async Task<PagedResult<MonasteryMemberDto>> GetMembers(int currentUserId, int monasterySpaceId, PaginationRequest? pagination = null)
         {
-            var pageNumber = (pagination?.PageNumber ?? 1) < 1 ? 1 : (pagination?.PageNumber ?? 1);
-            var pageSize = (pagination?.PageSize ?? 10) < 1 ? 10 : (pagination?.PageSize ?? 10);
-            if (((long)pageNumber - 1) * pageSize > int.MaxValue)
+            var requestedPageNumber = pagination?.PageNumber ?? 1;
+            var requestedPageSize = pagination?.PageSize ?? 10;
+            var pageNumber = requestedPageNumber.IsPositive() ? requestedPageNumber : 1;
+            var pageSize = requestedPageSize.IsPositive() ? requestedPageSize : 10;
+            if (!pageNumber.TryGetPaginationOffset(pageSize, out var offset))
             {
                 return PagedResult<MonasteryMemberDto>.Failure("Page number and page size must be positive and within the supported range.");
             }
@@ -488,7 +491,7 @@ namespace HsumChaint.Domain.Features.Monastery.Services
                         };
             var totalCount = await query.CountAsync();
             var members = await query.OrderBy(x => x.Id)
-                .Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync();
+                .Skip(offset).Take(pageSize).ToListAsync();
             return PagedResult<MonasteryMemberDto>.Success(members, new Pagination(pageNumber, pageSize, totalCount), "Members retrieved successfully.");
         }
 
@@ -590,9 +593,10 @@ namespace HsumChaint.Domain.Features.Monastery.Services
                 return await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == request.UserId.Value && x.IsDeleted == false);
             }
 
-            if (!string.IsNullOrWhiteSpace(request.PhoneNumber))
+            var phoneNumber = request.PhoneNumber.NormalizeOptionalString();
+            if (phoneNumber != null)
             {
-                return await _dbContext.Users.FirstOrDefaultAsync(x => x.PhoneNumber == request.PhoneNumber && x.IsDeleted == false);
+                return await _dbContext.Users.FirstOrDefaultAsync(x => x.PhoneNumber == phoneNumber && x.IsDeleted == false);
             }
 
             return null;
