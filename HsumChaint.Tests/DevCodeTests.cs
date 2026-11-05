@@ -46,7 +46,7 @@ public class DevCodeTests
     [InlineData(" user@example.com ", true)]
     [InlineData("not-an-email", false)]
     public void OptionalEmailValidation_AcceptsOnlyValidProvidedValues(string? email, bool expected)
-        => Assert.Equal(expected, email.IsValidOptionalEmail());
+        => Assert.Equal(expected, email.IsValidEmail());
 
     [Fact]
     public void EnumHelpers_RejectUndefinedValuesAndNormalizeSeparators()

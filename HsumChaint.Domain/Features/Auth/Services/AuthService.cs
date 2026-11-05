@@ -33,9 +33,21 @@ namespace HsumChaint.Domain.Features.Auth.Services
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(reqModel.Name) || string.IsNullOrWhiteSpace(reqModel.PhoneNumber) || string.IsNullOrWhiteSpace(reqModel.Password))
+                if (!reqModel.Name.TryNormalizeRequiredString(out var normalizedName)
+                    || !reqModel.PhoneNumber.TryNormalizeRequiredString(out var normalizedPhoneNumber)
+                    || !reqModel.Password.TryNormalizeRequiredString(out _))
                 {
                     return Result.Failure("Name, phone number and password are required.");
+                }
+
+                reqModel.Name = normalizedName;
+                reqModel.PhoneNumber = normalizedPhoneNumber;
+                reqModel.Email = reqModel.Email.NormalizeOptionalString();
+                reqModel.ContactPhoneNumber = reqModel.ContactPhoneNumber.NormalizeOptionalString();
+
+                if (!reqModel.Email.IsValidEmail())
+                {
+                    return Result.Failure("Email address is invalid.");
                 }
 
                 if (!Regex.IsMatch(reqModel.PhoneNumber, @"^\+?[0-9]+$"))
@@ -43,12 +55,13 @@ namespace HsumChaint.Domain.Features.Auth.Services
                     return Result.Failure("Phone number must contain English digits only.");
                 }
 
-                if (!string.IsNullOrWhiteSpace(reqModel.ContactPhoneNumber) && !Regex.IsMatch(reqModel.ContactPhoneNumber, @"^\+?[0-9]+$"))
+                if (reqModel.ContactPhoneNumber is string contactPhoneNumber
+                    && !Regex.IsMatch(contactPhoneNumber, @"^\+?[0-9]+$"))
                 {
                     return Result.Failure("Contact phone number must contain English digits only.");
                 }
 
-                if (!Regex.IsMatch(reqModel.Password, @"^[\x21-\x7E]+$"))
+                if (!Regex.IsMatch(reqModel.Password!, @"^[\x21-\x7E]+$"))
                 {
                     return Result.Failure("Password must contain English characters and symbols only.");
                 }
@@ -68,7 +81,7 @@ namespace HsumChaint.Domain.Features.Auth.Services
                     return Result.Failure("Role not found.");
                 }
                 UserEntity user = new UserEntity();
-                var hashedPassword = _passwordHasher.HashPasswordSafe(user, reqModel.Password);
+                var hashedPassword = _passwordHasher.HashPasswordSafe(user, reqModel.Password!);
 
                 var registerUser = new UserEntity
                 {
@@ -112,12 +125,15 @@ namespace HsumChaint.Domain.Features.Auth.Services
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(reqModel.PhoneNumber) || string.IsNullOrWhiteSpace(reqModel.Password))
+                if (!reqModel.PhoneNumber.TryNormalizeRequiredString(out var normalizedPhoneNumber)
+                    || !reqModel.Password.TryNormalizeRequiredString(out _))
                 {
                     return Result<LoginResponseDto>.Failure("Phone number or password incorrect!");
                 }
 
-                if (!Regex.IsMatch(reqModel.PhoneNumber, @"^\+?[0-9]+$") || !Regex.IsMatch(reqModel.Password, @"^[\x21-\x7E]+$"))
+                reqModel.PhoneNumber = normalizedPhoneNumber;
+
+                if (!Regex.IsMatch(reqModel.PhoneNumber, @"^\+?[0-9]+$") || !Regex.IsMatch(reqModel.Password!, @"^[\x21-\x7E]+$"))
                 {
                     return Result<LoginResponseDto>.Failure("Phone number or password incorrect!");
                 }
@@ -130,7 +146,7 @@ namespace HsumChaint.Domain.Features.Auth.Services
                 }
 
                 UserEntity user = new UserEntity();
-                if (_passwordHasher.VerifyPasswordSafe(user, existingUser.Password, reqModel.Password)
+                if (_passwordHasher.VerifyPasswordSafe(user, existingUser.Password, reqModel.Password!)
                     == PasswordVerificationResult.Failed)
                 {
                     return Result<LoginResponseDto>.Failure("Phone number or password incorrect!");
@@ -238,10 +254,10 @@ namespace HsumChaint.Domain.Features.Auth.Services
         #region IsValidRefreshToken
         private async Task<bool> IsValidRefreshToken(int userId, string refreshToken)
         {
-            if (string.IsNullOrWhiteSpace(refreshToken))
+            if (!refreshToken.TryNormalizeRequiredString(out var normalizedRefreshToken))
                 return false;
 
-            var hashedRefreshToken = refreshToken.HashToken();
+            var hashedRefreshToken = normalizedRefreshToken.HashToken();
 
             var tokenModel = await _dbContext.RefreshTokens
                 .FirstOrDefaultAsync(x => x.UserId == userId);

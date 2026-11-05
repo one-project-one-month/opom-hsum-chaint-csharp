@@ -150,7 +150,7 @@ namespace HsumChaint.Domain.Features.User.Services
         public async Task<CursorPagedResult<InvitationDto>> GetUserInvitationFeed(int id, CursorPaginationRequest? pagination = null)
         {
             var pageSize = pagination?.PageSize ?? 15;
-            if (pageSize < 1) pageSize = 15;
+            if (!pageSize.IsPositive()) pageSize = 15;
 
             try
             {
@@ -252,7 +252,7 @@ namespace HsumChaint.Domain.Features.User.Services
         public async Task<CursorPagedResult<NotificationDto>> GetUserNotificationFeed(int id, CursorPaginationRequest? pagination = null)
         {
             var pageSize = pagination?.PageSize ?? 15;
-            if (pageSize < 1) pageSize = 15;
+            if (!pageSize.IsPositive()) pageSize = 15;
 
             try
             {
@@ -588,17 +588,28 @@ namespace HsumChaint.Domain.Features.User.Services
                 return false;
             }
 
-            if (string.IsNullOrEmpty(user.Name))
+            if (!user.Name.TryNormalizeRequiredString(out var normalizedName))
             {
                 errorMessage = "User name cannot be null or empty.";
                 return false;
             }
 
-            if (string.IsNullOrEmpty(user.PhoneNumber))
+            if (!user.PhoneNumber.TryNormalizeRequiredString(out var normalizedPhoneNumber))
             {
                 errorMessage = "User phone number cannot be null or empty.";
                 return false;
             }
+
+            user.Email = user.Email.NormalizeOptionalString();
+            if (!user.Email.IsValidEmail())
+            {
+                errorMessage = "User email address is invalid.";
+                return false;
+            }
+
+            user.Name = normalizedName;
+            user.PhoneNumber = normalizedPhoneNumber;
+            user.ContactPhoneNumber = user.ContactPhoneNumber.NormalizeOptionalString();
 
             return true;
         }

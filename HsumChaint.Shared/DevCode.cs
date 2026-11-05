@@ -47,7 +47,7 @@ public static class DevCode
             && value.CompareTo(maximum) <= 0;
     }
 
-    public static bool IsValidOptionalEmail(this string? email)
+    public static bool IsValidEmail(this string? email)
     {
         var normalizedEmail = email.NormalizeOptionalString();
         if (normalizedEmail == null)
