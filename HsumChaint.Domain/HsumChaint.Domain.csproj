@@ -13,6 +13,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\HsumChaint.Shared\HsumChaint.Shared.csproj" />
     <ProjectReference Include="..\HsumChaint.Database\HsumChaint.Database.csproj" />
   </ItemGroup>
