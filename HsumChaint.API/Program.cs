@@ -1,6 +1,5 @@
 using HsumChaint.API.Extensions;
-using HsumChaint.Domain.Extensions;
-using HsumChaint.Database.Extensions;
+using HsumChaint.Domain.Features;
 using Microsoft.OpenApi;
 using Scalar.AspNetCore;
 
@@ -40,9 +39,9 @@ var corsOrigins = configuredCorsOrigins.Length > 0
 
 builder.Services
     .AddApiServices()
-    .AddJwtAuthentication(builder.Configuration)
-    .AddDomainServices()
-    .AddDatabaseServices(builder.Configuration);
+    .AddJwtAuthentication(builder.Configuration);
+
+builder.AddDomain();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>

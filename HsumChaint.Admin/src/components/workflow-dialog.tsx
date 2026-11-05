@@ -9,11 +9,16 @@ import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, Dialog
 import type { Field, Operation } from '@/lib/workflows';
 import { SearchableSelect } from './ui/searchable-select';
 import { DateInput } from './ui/date-input';
+import { SchedulePicker } from './ui/schedule-picker';
+import { DeliveryTimePicker } from './ui/delivery-time-picker';
+import { useLanguage } from './localization';
 
 export function WorkflowDialog({ operation, id, parent, title, label, fields = [], description, destructive, disabled, repeatFields }: { operation: Operation; id?: number; parent?: number; title: string; label?: string; fields?: Field[]; description?: string; destructive?: boolean; disabled?: boolean; repeatFields?: Field[] }) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState('');
-  return <><Dialog open={open} onOpenChange={setOpen}><DialogTrigger asChild><Button size="sm" variant={destructive ? 'destructive' : 'outline'} disabled={disabled}>{label || title}</Button></DialogTrigger>{open && <WorkflowForm operation={operation} id={id} parent={parent} fields={fields} title={title} description={description} destructive={destructive} repeatFields={repeatFields} done={() => { setOpen(false); setMessage('လုပ်ဆောင်မှု အောင်မြင်ပါသည်။'); }} />}</Dialog>{message && <div className="workflow-toast" role="status"><span>{message}</span><Button size="icon" variant="ghost" aria-label="အသိပေးစာ ပိတ်ရန်" onClick={() => setMessage('')}><X size={15} /></Button></div>}</>;
+  const visibleTitle = title.replace(/\s*#\d+/g, '');
+  return <><Dialog open={open} onOpenChange={setOpen}><DialogTrigger asChild><Button size="sm" variant={destructive ? 'destructive' : 'outline'} disabled={disabled}>{t(label || visibleTitle)}</Button></DialogTrigger>{open && <WorkflowForm operation={operation} id={id} parent={parent} fields={fields} title={t(visibleTitle)} description={description ? t(description) : description} destructive={destructive} repeatFields={repeatFields} done={() => { setOpen(false); setMessage(t('လုပ်ဆောင်မှု အောင်မြင်ပါသည်။')); }} />}</Dialog>{message && <div className="workflow-toast" role="status"><span>{message}</span><Button size="icon" variant="ghost" aria-label={t('အသိပေးစာ ပိတ်ရန်')} onClick={() => setMessage('')}><X size={15} /></Button></div>}</>;
 }
 function WorkflowForm({ operation, id, parent, fields, title, description, destructive, repeatFields, done }: { operation: Operation; id?: number; parent?: number; fields: Field[]; title: string; description?: string; destructive?: boolean; repeatFields?: Field[]; done: () => void }) {
   const [state, action, pending] = useActionState(mutate.bind(null, operation, id, parent), {});
@@ -24,6 +29,8 @@ function WorkflowForm({ operation, id, parent, fields, title, description, destr
 }
 function FormField({ field: f }: { field: Field }) {
   const id = `field-${f.name}`;
+  if (f.type === 'schedule-picker') { const values = JSON.parse(String(f.value || '{}')) as { pickup?: string; dropoff?: string }; return <SchedulePicker pickupValue={values.pickup} dropoffValue={values.dropoff} />; }
+  if (f.type === 'delivery-time-picker') { const values = JSON.parse(String(f.value || '{}')) as { pickup?: string; dropoff?: string }; return <DeliveryTimePicker pickupValue={values.pickup} dropoffValue={values.dropoff} />; }
   if (f.type === 'permissions') return <fieldset className="permission-picker"><legend>{f.label}</legend>{f.options?.map(option => <label key={option.value}><input type="checkbox" name={f.name} value={option.value} defaultChecked={f.selected?.includes(Number(option.value))} />{option.label}</label>)}</fieldset>;
   return <div className="field"><label htmlFor={id}>{f.label}{f.required ? ' *' : ''}</label>{f.type === 'searchable-select' ? <SearchableSelect name={f.name} label={f.label} options={f.options || []} value={f.value} required={f.required} /> : f.type === 'select' ? <select id={id} className="select" name={f.name} defaultValue={f.value ?? ''} required={f.required}><option value="">ရွေးချယ်ပါ</option>{f.options?.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : f.type === 'textarea' ? <textarea id={id} className="select textarea" name={f.name} defaultValue={f.value} maxLength={2000} required={f.required} /> : f.type === 'date' || f.type === 'datetime-local' ? <DateInput id={id} name={f.name} value={f.value} required={f.required} withTime={f.type === 'datetime-local'} /> : <Input id={id} name={f.name} type={f.type || 'text'} defaultValue={f.value} required={f.required} min={f.min} max={f.max} step={f.type === 'number' ? 'any' : undefined} maxLength={f.type === 'password' ? 256 : 2000} autoComplete={f.type === 'password' ? 'new-password' : undefined} />}{f.hint && <small className="muted">{f.hint}</small>}</div>;
 }

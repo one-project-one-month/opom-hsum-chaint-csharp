@@ -4,6 +4,7 @@ import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { XIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { LocalizedContent, useLanguage } from '@/components/localization'
 
 function Dialog({
   ...props
@@ -49,6 +50,7 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  onInteractOutside,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
@@ -58,13 +60,17 @@ function DialogContent({
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot='dialog-content'
+        onInteractOutside={(event) => {
+          event.preventDefault()
+          onInteractOutside?.(event)
+        }}
         className={cn(
           'fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border bg-background p-6 shadow-lg duration-200 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-lg',
           className
         )}
         {...props}
       >
-        {children}
+        <LocalizedContent>{children}</LocalizedContent>
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot='dialog-close'
@@ -89,7 +95,8 @@ function DialogHeader({ className, ...props }: React.ComponentProps<'div'>) {
   )
 }
 
-function DialogFooter({ className, ...props }: React.ComponentProps<'div'>) {
+function DialogFooter({ className, children, ...props }: React.ComponentProps<'div'>) {
+  const { t } = useLanguage()
   return (
     <div
       data-slot='dialog-footer'
@@ -98,7 +105,17 @@ function DialogFooter({ className, ...props }: React.ComponentProps<'div'>) {
         className
       )}
       {...props}
-    />
+    >
+      <DialogPrimitive.Close asChild>
+        <button
+          type='button'
+          className='inline-flex h-9 items-center justify-center rounded-md border bg-background px-4 py-2 text-sm font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
+        >
+          {t('မလုပ်တော့ပါ')}
+        </button>
+      </DialogPrimitive.Close>
+      {children}
+    </div>
   )
 }
 
