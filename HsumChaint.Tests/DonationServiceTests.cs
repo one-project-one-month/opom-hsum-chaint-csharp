@@ -265,6 +265,62 @@ public class DonationServiceTests
             It.IsAny<Dictionary<string, string>>()), Times.Once);
     }
 
+    [Fact]
+    public async Task GetDonationStatuses_ReturnsAllSixStatuses_WithBurmeseLabels()
+    {
+        await using var db = CreateDbContext();
+        var service = new DonationService(db, Mock.Of<IFirebaseNotificationProvider>());
+        var response = await service.GetDonationStatuses();
+
+        Assert.True(response.IsSuccess);
+        Assert.Equal(6, response.Data!.Count);
+        Assert.Equal("PendingReview", response.Data[0].Name);
+        Assert.Equal("စောင့်ဆိုင်းဆဲ", response.Data[0].Label);
+        Assert.Equal("Completed", response.Data[3].Name);
+        Assert.Equal("ကပ်လှူပြီးစီး", response.Data[3].Label);
+    }
+
+    [Fact]
+    public async Task UpdateDonationStatus_UpdatesStatus_AndProtectsCompletedStatus()
+    {
+        await using var db = CreateDbContext();
+        SeedUser(db, 1, "Owner", "091", "donor-token");
+        SeedUser(db, 2, "Donor", "092", "donor-fcm");
+        SeedMonastery(db, 10, 1);
+        SeedDonation(db, 100, 10, 2, DonationStatus.PendingReview);
+        await db.SaveChangesAsync();
+
+        var mockNoti = new Mock<IFirebaseNotificationProvider>();
+        var service = new DonationService(db, mockNoti.Object);
+
+        // Update to Scheduled
+        var updateResult = await service.UpdateDonationStatus(1, 100, new UpdateDonationStatusRequestDto
+        {
+            Status = DonationStatus.Scheduled,
+            Note = "Status updated"
+        });
+
+        Assert.True(updateResult.IsSuccess);
+        Assert.Equal(DonationStatus.Scheduled, updateResult.Data!.Status);
+        Assert.Equal("Status updated", updateResult.Data.Note);
+
+        // Complete donation
+        var completeResult = await service.UpdateDonationStatus(1, 100, new UpdateDonationStatusRequestDto
+        {
+            Status = DonationStatus.Completed
+        });
+        Assert.True(completeResult.IsSuccess);
+        Assert.Equal(DonationStatus.Completed, completeResult.Data!.Status);
+        Assert.NotNull(completeResult.Data.CompletedAt);
+
+        // Cannot change completed donation to pending review or cancelled
+        var invalidChange = await service.UpdateDonationStatus(1, 100, new UpdateDonationStatusRequestDto
+        {
+            Status = DonationStatus.PendingReview
+        });
+        Assert.False(invalidChange.IsSuccess);
+    }
+
     private static AppDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
