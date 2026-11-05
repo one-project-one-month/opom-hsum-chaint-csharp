@@ -129,7 +129,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
         {
             var pageNumber = query.PageNumber;
             var pageSize = query.PageSize;
-            if (pageNumber < 1 || pageSize < 1 || ((long)pageNumber - 1) * pageSize > int.MaxValue)
+            if (!pageNumber.TryGetPaginationOffset(pageSize, out var offset))
             {
                 return PagedResult<DonationDto>.Failure("Page number and page size must be positive and within the supported range.");
             }
@@ -181,7 +181,7 @@ namespace HsumChaint.Domain.Features.Donation.Services
             var donationEntities = await donations
                 .OrderBy(x => x.CreatedAt)
                 .ThenBy(x => x.Id)
-                .Skip((pageNumber - 1) * pageSize)
+                .Skip(offset)
                 .Take(pageSize)
                 .ToListAsync();
             var list = donationEntities.Select(MapDonation).ToList();

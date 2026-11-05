@@ -132,7 +132,7 @@ namespace HsumChaint.Domain.Features.Monastery.Services
         {
             var pageNumber = request.PageNumber < 1 ? 1 : request.PageNumber;
             var pageSize = request.PageSize < 1 ? 10 : request.PageSize;
-            if (((long)pageNumber - 1) * pageSize > int.MaxValue)
+            if (!pageNumber.TryGetPaginationOffset(pageSize, out var offset))
             {
                 return PagedResult<MonasterySpaceDto>.Failure("Page number and page size must be positive and within the supported range.");
             }
@@ -140,7 +140,7 @@ namespace HsumChaint.Domain.Features.Monastery.Services
             var query = ActiveMonasteries.AsNoTracking();
             var totalCount = await query.CountAsync();
             var monasteries = await query.OrderBy(x => x.Id)
-                .Skip((pageNumber - 1) * pageSize)
+                .Skip(offset)
                 .Take(pageSize)
                 .Select(x => new MonasterySpaceDto
                 {
@@ -159,7 +159,7 @@ namespace HsumChaint.Domain.Features.Monastery.Services
         {
             var pageNumber = request.PageNumber < 1 ? 1 : request.PageNumber;
             var pageSize = request.PageSize < 1 ? 10 : request.PageSize;
-            if (((long)pageNumber - 1) * pageSize > int.MaxValue)
+            if (!pageNumber.TryGetPaginationOffset(pageSize, out var offset))
             {
                 return PagedResult<MonasterySpaceDto>.Failure("Page number and page size must be positive and within the supported range.");
             }
@@ -175,7 +175,7 @@ namespace HsumChaint.Domain.Features.Monastery.Services
 
             var totalCount = await query.CountAsync();
             var monasteries = await query.OrderBy(x => x.Id)
-                .Skip((pageNumber - 1) * pageSize)
+                .Skip(offset)
                 .Take(pageSize)
                 .Select(x => new MonasterySpaceDto
                 {
@@ -194,7 +194,7 @@ namespace HsumChaint.Domain.Features.Monastery.Services
         {
             var pageNumber = pagination?.PageNumber ?? 1;
             var pageSize = pagination?.PageSize ?? 10;
-            if (pageNumber < 1 || pageSize < 1 || ((long)pageNumber - 1) * pageSize > int.MaxValue)
+            if (!pageNumber.TryGetPaginationOffset(pageSize, out var offset))
             {
                 return PagedResult<MonasterySpaceDto>.Failure("Page number and page size must be positive and within the supported range.");
             }
@@ -218,7 +218,7 @@ namespace HsumChaint.Domain.Features.Monastery.Services
 
             var totalCount = await query.CountAsync();
             var monasteries = await query.OrderBy(x => x.Id)
-                .Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync();
+                .Skip(offset).Take(pageSize).ToListAsync();
             return PagedResult<MonasterySpaceDto>.Success(monasteries, new Pagination(pageNumber, pageSize, totalCount), "Monasteries retrieved successfully.");
         }
 
@@ -462,7 +462,7 @@ namespace HsumChaint.Domain.Features.Monastery.Services
         {
             var pageNumber = (pagination?.PageNumber ?? 1) < 1 ? 1 : (pagination?.PageNumber ?? 1);
             var pageSize = (pagination?.PageSize ?? 10) < 1 ? 10 : (pagination?.PageSize ?? 10);
-            if (((long)pageNumber - 1) * pageSize > int.MaxValue)
+            if (!pageNumber.TryGetPaginationOffset(pageSize, out var offset))
             {
                 return PagedResult<MonasteryMemberDto>.Failure("Page number and page size must be positive and within the supported range.");
             }
@@ -488,7 +488,7 @@ namespace HsumChaint.Domain.Features.Monastery.Services
                         };
             var totalCount = await query.CountAsync();
             var members = await query.OrderBy(x => x.Id)
-                .Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync();
+                .Skip(offset).Take(pageSize).ToListAsync();
             return PagedResult<MonasteryMemberDto>.Success(members, new Pagination(pageNumber, pageSize, totalCount), "Members retrieved successfully.");
         }
 
