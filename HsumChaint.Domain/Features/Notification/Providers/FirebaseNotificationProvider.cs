@@ -8,7 +8,9 @@ namespace HsumChaint.Domain.Features.Notification.Providers
         {
             var message = new Message()
             {
+#pragma warning disable CS0618 // Existing clients persist legacy FCM registration tokens; migrate them to FIDs before changing this property.
                 Token = deviceToken,
+#pragma warning restore CS0618
                 Notification = new FirebaseAdmin.Messaging.Notification()
                 {
                     Title = title,
@@ -19,10 +21,10 @@ namespace HsumChaint.Domain.Features.Notification.Providers
 
             try
             {
-                var isSend = await FirebaseMessaging.DefaultInstance.SendAsync(message);
+                await FirebaseMessaging.DefaultInstance.SendAsync(message);
                 return true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return false;
             }

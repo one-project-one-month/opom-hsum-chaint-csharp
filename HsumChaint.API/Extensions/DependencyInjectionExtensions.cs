@@ -54,7 +54,9 @@ public static class DependencyInjectionExtensions
         {
             FirebaseApp.Create(new AppOptions
             {
-                Credential = GoogleCredential.FromFile(resolvedPath)
+                Credential = CredentialFactory
+                    .FromFile<ServiceAccountCredential>(resolvedPath)
+                    .ToGoogleCredential()
             });
         }
 
