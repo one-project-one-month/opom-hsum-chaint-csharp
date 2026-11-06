@@ -71,6 +71,16 @@ public partial class AdminController(AppDbContext db) : ControllerBase, IAsyncAc
             var search = query.Search.Trim();
             donations = donations.Where(x => x.DonorName != null && x.DonorName.Contains(search));
         }
+        if (!string.IsNullOrWhiteSpace(query.Monastery))
+        {
+            var searchMonastery = query.Monastery.Trim();
+            donations = donations.Where(x => db.MonasterySpaces.Any(m =>
+                m.Id == x.MonasterySpaceId && m.MonasteryName != null && m.MonasteryName.Contains(searchMonastery)));
+        }
+        if (query.MonasterySpaceId.HasValue)
+        {
+            donations = donations.Where(x => x.MonasterySpaceId == query.MonasterySpaceId.Value);
+        }
 
         var total = await donations.CountAsync(cancellationToken);
         var rows = await (
@@ -100,6 +110,8 @@ public class AdminDonationQuery
     [Range(1, 1000000)] public int PageNumber { get; set; } = 1;
     [Range(1, 100)] public int PageSize { get; set; } = 10;
     [StringLength(100)] public string? Search { get; set; }
+    [StringLength(100)] public string? Monastery { get; set; }
+    public int? MonasterySpaceId { get; set; }
     [RegularExpression(@"^\d{4}-(0[1-9]|1[0-2])$")] public string? CalendarMonth { get; set; }
     [EnumDataType(typeof(DonationStatus))] public DonationStatus? Status { get; set; }
     public DateTime? FromDate { get; set; }
