@@ -141,6 +141,28 @@ public partial class AdminController
         await db.SaveChangesAsync();
         return Ok(Result.Success("All notifications cleared."));
     }
+
+    #region Login Modes
+    [HttpGet("login-modes")]
+    public async Task<IActionResult> GetLoginModes([FromServices] ILoginModeService service)
+    {
+        var modes = await service.GetAllModes();
+        return modes.ToActionResult();
+    }
+
+    [HttpPut("login-mode")]
+    public async Task<IActionResult> UpdateLoginMode(UpdateLoginModeRequestDto request, [FromServices] ILoginModeService service)
+    {
+        var currentUserId = User.GetCurrentUserId();
+        if (!currentUserId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var result = await service.UpdateActiveMode(currentUserId.Value, request);
+        return result.ToActionResult();
+    }
+    #endregion
 }
 
 public class AdminPageQuery

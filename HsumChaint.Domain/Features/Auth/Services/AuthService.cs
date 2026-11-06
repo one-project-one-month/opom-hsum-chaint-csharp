@@ -1,14 +1,16 @@
-using HsumChaint.Shared;
-using HsumChaint.Shared.Authorization;
+using System;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using HsumChaint.Database.Models;
 using HsumChaint.Domain.Features.Auth.DTOs;
 using HsumChaint.Domain.Features.Auth.ServiceInterfaces;
 using HsumChaint.Domain.Features.RolePermission.ServiceInterfaces;
+using HsumChaint.Shared;
+using HsumChaint.Shared.Authorization;
 using HsumChaint.Shared.Configuration;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using System.Text.RegularExpressions;
 using UserEntity = HsumChaint.Database.Models.User;
 
 namespace HsumChaint.Domain.Features.Auth.Services
@@ -19,13 +21,36 @@ namespace HsumChaint.Domain.Features.Auth.Services
         private readonly IPasswordHasher<UserEntity> _passwordHasher;
         private readonly JwtOptions _jwtOptions;
         private readonly IRolePermissionService _rolePermissionService;
+        private readonly ILoginModeService _loginModeService;
 
-        public AuthService(AppDbContext dbContext, IPasswordHasher<UserEntity> passwordHasher, IOptions<JwtOptions> jwtOptions, IRolePermissionService rolePermissionService)
+        public AuthService(
+            AppDbContext dbContext,
+            IPasswordHasher<UserEntity> passwordHasher,
+            IOptions<JwtOptions> jwtOptions,
+            IRolePermissionService rolePermissionService,
+            ILoginModeService loginModeService)
         {
             _dbContext = dbContext;
             _passwordHasher = passwordHasher;
             _jwtOptions = jwtOptions.Value;
             _rolePermissionService = rolePermissionService;
+            _loginModeService = loginModeService;
+        }
+
+        public AuthService(
+            AppDbContext dbContext,
+            IPasswordHasher<UserEntity> passwordHasher,
+            IOptions<JwtOptions> jwtOptions,
+            IRolePermissionService rolePermissionService)
+            : this(dbContext, passwordHasher, jwtOptions, rolePermissionService, new DefaultFallbackLoginModeService())
+        {
+        }
+
+        private sealed class DefaultFallbackLoginModeService : ILoginModeService
+        {
+            public Task<Result<LoginMode>> GetActiveMode() => Task.FromResult(Result<LoginMode>.Success(new LoginMode { Code = LoginModeCodes.PhoneOnly, IsActive = true }));
+            public Task<Result<IReadOnlyList<LoginModeDto>>> GetAllModes() => throw new NotSupportedException();
+            public Task<Result> UpdateActiveMode(int adminUserId, UpdateLoginModeRequestDto request) => throw new NotSupportedException();
         }
 
         #region Register
@@ -33,24 +58,36 @@ namespace HsumChaint.Domain.Features.Auth.Services
         {
             try
             {
-                if (!reqModel.Name.TryNormalizeRequiredString(out var normalizedName)
-                    || !reqModel.PhoneNumber.TryNormalizeRequiredString(out var normalizedPhoneNumber)
-                    || !reqModel.Password.TryNormalizeRequiredString(out _))
+                if (!reqModel.Name.TryNormalizeRequiredString(out var normalizedName) || !reqModel.Password.TryNormalizeRequiredString(out _))
                 {
-                    return Result.Failure("Name, phone number and password are required.");
+                    return Result.Failure("Name and password are required.");
                 }
 
+                var modeResult = await _loginModeService.GetActiveMode();
+                if (modeResult.IsFailure || modeResult.Data is null)
+                {
+                    return Result.Failure(modeResult.Message);
+                }
+
+                var mode = modeResult.Data;
                 reqModel.Name = normalizedName;
-                reqModel.PhoneNumber = normalizedPhoneNumber;
-                reqModel.Email = reqModel.Email.NormalizeOptionalString();
+                reqModel.PhoneNumber = reqModel.PhoneNumber.NormalizeOptionalString();
+                reqModel.Email = reqModel.Email.NormalizeOptionalString()?.ToLowerInvariant();
                 reqModel.ContactPhoneNumber = reqModel.ContactPhoneNumber.NormalizeOptionalString();
+
+                if ((mode.Code == LoginModeCodes.PhoneOnly && reqModel.PhoneNumber is null)
+                    || (mode.Code == LoginModeCodes.EmailOnly && reqModel.Email is null)
+                    || (mode.Code == LoginModeCodes.PhoneOrEmail && reqModel.PhoneNumber is null && reqModel.Email is null))
+                {
+                    return Result.Failure("The active login mode requires a valid phone number or email address.");
+                }
 
                 if (!reqModel.Email.IsValidEmail())
                 {
                     return Result.Failure("Email address is invalid.");
                 }
 
-                if (!Regex.IsMatch(reqModel.PhoneNumber, @"^\+?[0-9]+$"))
+                if (reqModel.PhoneNumber is not null && !Regex.IsMatch(reqModel.PhoneNumber, @"^\+?[0-9]+$"))
                 {
                     return Result.Failure("Phone number must contain English digits only.");
                 }
@@ -65,13 +102,15 @@ namespace HsumChaint.Domain.Features.Auth.Services
                 {
                     return Result.Failure("Password must contain English characters and symbols only.");
                 }
-                var existingUser = await _dbContext.Users.Include(u => u.Role)
-                    .FirstOrDefaultAsync(x => x.PhoneNumber == reqModel.PhoneNumber && x.IsDeleted == false);
 
-                #region Phone Number Duplicate validation
+                var existingUser = await _dbContext.Users.FirstOrDefaultAsync(x => x.IsDeleted == false
+                    && ((reqModel.PhoneNumber != null && x.PhoneNumber == reqModel.PhoneNumber)
+                        || (reqModel.Email != null && x.Email == reqModel.Email)));
+
+                #region Duplicate validation
                 if (existingUser != null)
                 {
-                    return Result.Failure("User with this phone number already exists");
+                    return Result.Failure("A user with this identifier already exists.");
                 }
                 #endregion
 
@@ -80,13 +119,14 @@ namespace HsumChaint.Domain.Features.Auth.Services
                 {
                     return Result.Failure("Role not found.");
                 }
+
                 UserEntity user = new UserEntity();
                 var hashedPassword = _passwordHasher.HashPasswordSafe(user, reqModel.Password!);
 
                 var registerUser = new UserEntity
                 {
                     Name = reqModel.Name!,
-                    PhoneNumber = reqModel.PhoneNumber!,
+                    PhoneNumber = reqModel.PhoneNumber,
                     Password = hashedPassword,
                     RoleId = reqModel.RoleId,
                     Email = reqModel.Email,
@@ -108,7 +148,6 @@ namespace HsumChaint.Domain.Features.Auth.Services
                         MonasteryAddress = reqModel.MonasteryAddress,
                     });
                     await _dbContext.SaveChangesAsync();
-
                 }
 
                 return Result.Success("Register Successful");
@@ -125,40 +164,64 @@ namespace HsumChaint.Domain.Features.Auth.Services
         {
             try
             {
-                if (!reqModel.PhoneNumber.TryNormalizeRequiredString(out var normalizedPhoneNumber)
+                var legacyPhoneNumberProvided = reqModel.Identifier is null && reqModel.PhoneNumber is not null;
+                var identifier = reqModel.Identifier ?? reqModel.PhoneNumber;
+
+                if (!identifier.TryNormalizeRequiredString(out var normalizedIdentifier)
                     || !reqModel.Password.TryNormalizeRequiredString(out _))
                 {
-                    return Result<LoginResponseDto>.Failure("Phone number or password incorrect!");
+                    return Result<LoginResponseDto>.Failure(GetInvalidCredentialsMessage(identifier, legacyPhoneNumberProvided));
                 }
 
-                reqModel.PhoneNumber = normalizedPhoneNumber;
+                identifier = normalizedIdentifier.ToLowerInvariant();
+                var isEmail = identifier.Contains('@');
 
-                if (!Regex.IsMatch(reqModel.PhoneNumber, @"^\+?[0-9]+$") || !Regex.IsMatch(reqModel.Password!, @"^[\x21-\x7E]+$"))
+                var modeResult = await _loginModeService.GetActiveMode();
+                if (modeResult.IsFailure || modeResult.Data is null)
                 {
-                    return Result<LoginResponseDto>.Failure("Phone number or password incorrect!");
+                    return Result<LoginResponseDto>.Failure(modeResult.Message);
                 }
+
+                var mode = modeResult.Data;
+                if ((isEmail && mode.Code == LoginModeCodes.PhoneOnly) || (!isEmail && mode.Code == LoginModeCodes.EmailOnly))
+                {
+                    return Result<LoginResponseDto>.Failure(GetInvalidCredentialsMessage(identifier, legacyPhoneNumberProvided));
+                }
+
+                if ((!isEmail && !Regex.IsMatch(identifier, @"^\+?[0-9]+$")) || !Regex.IsMatch(reqModel.Password!, @"^[\x21-\x7E]+$"))
+                {
+                    return Result<LoginResponseDto>.Failure(GetInvalidCredentialsMessage(identifier, legacyPhoneNumberProvided));
+                }
+
                 var existingUser = await _dbContext.Users.Include(u => u.Role)
-                    .FirstOrDefaultAsync(x => x.PhoneNumber == reqModel.PhoneNumber && x.IsDeleted == false);
+                    .FirstOrDefaultAsync(x => x.IsDeleted == false && (isEmail ? x.Email == identifier : x.PhoneNumber == identifier));
 
                 if (existingUser == null || existingUser.Role == null || existingUser.Role.IsDeleted)
                 {
-                    return Result<LoginResponseDto>.Failure("Phone number or password incorrect!");
+                    return Result<LoginResponseDto>.Failure(GetInvalidCredentialsMessage(identifier, legacyPhoneNumberProvided));
                 }
 
                 UserEntity user = new UserEntity();
                 if (_passwordHasher.VerifyPasswordSafe(user, existingUser.Password, reqModel.Password!)
                     == PasswordVerificationResult.Failed)
                 {
-                    return Result<LoginResponseDto>.Failure("Phone number or password incorrect!");
+                    return Result<LoginResponseDto>.Failure(GetInvalidCredentialsMessage(identifier, legacyPhoneNumberProvided));
                 }
 
                 var permissions = await _rolePermissionService.GetUserPermissions(existingUser.Id);
-                string Token = _jwtOptions.GenerateJwtToken(existingUser.Id, existingUser.PhoneNumber, existingUser.Role.Name, permissions);
+
+                if ((isEmail && mode.RequireEmailVerification && existingUser.EmailVerifiedAt is null)
+                    || (!isEmail && mode.RequirePhoneVerification && existingUser.PhoneVerifiedAt is null))
+                {
+                    return Result<LoginResponseDto>.Failure("Identifier verification is required.");
+                }
+
+                string token = _jwtOptions.GenerateJwtToken(existingUser.Id, existingUser.PhoneNumber ?? existingUser.Email!, existingUser.Role.Name, permissions);
                 string refreshToken = await this.GenerateAndSaveRefreshToken(new GenerateRefreshTokenDto { UserId = existingUser.Id });
 
                 return Result<LoginResponseDto>.Success(new LoginResponseDto
                 {
-                    AccessToken = Token,
+                    AccessToken = token,
                     RoleId = existingUser.RoleId,
                     RoleName = existingUser.Role.Name,
                     Permissions = permissions,
@@ -170,6 +233,17 @@ namespace HsumChaint.Domain.Features.Auth.Services
             {
                 return Result<LoginResponseDto>.Failure($"Application layer err: {ex.Message} {ex.InnerException}");
             }
+        }
+
+        private static string GetInvalidCredentialsMessage(string? identifier, bool legacyPhoneNumberProvided)
+        {
+            var isEmail = identifier?.Contains('@') ?? false;
+            if (isEmail && !legacyPhoneNumberProvided)
+            {
+                return "Invalid identifier or password.";
+            }
+
+            return "Phone number or password incorrect!";
         }
         #endregion
 
@@ -191,12 +265,12 @@ namespace HsumChaint.Domain.Features.Auth.Services
                     }
 
                     var permissions = await _rolePermissionService.GetUserPermissions(existingUser.Id);
-                    string Token = _jwtOptions.GenerateJwtToken(existingUser.Id, existingUser.PhoneNumber, existingUser.Role.Name, permissions);
+                    string token = _jwtOptions.GenerateJwtToken(existingUser.Id, existingUser.PhoneNumber ?? existingUser.Email!, existingUser.Role.Name, permissions);
                     string refreshToken = await this.GenerateAndSaveRefreshToken(new GenerateRefreshTokenDto { UserId = existingUser.Id });
 
                     return Result<LoginResponseDto>.Success(new LoginResponseDto
                     {
-                        AccessToken = Token,
+                        AccessToken = token,
                         RoleId = existingUser.RoleId,
                         RoleName = existingUser.Role.Name,
                         Permissions = permissions,
@@ -222,7 +296,6 @@ namespace HsumChaint.Domain.Features.Auth.Services
             var refreshToken = 32.GenerateRefreshToken();
             var hashedRefreshToken = refreshToken.HashToken();
 
-            //reqModel.RefreshToken = refreshToken;
             reqModel.ExpiresAt = DateTime.UtcNow.AddDays(7);
 
             var existingRefreshToken = await _dbContext.RefreshTokens
@@ -255,7 +328,9 @@ namespace HsumChaint.Domain.Features.Auth.Services
         private async Task<bool> IsValidRefreshToken(int userId, string refreshToken)
         {
             if (!refreshToken.TryNormalizeRequiredString(out var normalizedRefreshToken))
+            {
                 return false;
+            }
 
             var hashedRefreshToken = normalizedRefreshToken.HashToken();
 
@@ -263,11 +338,12 @@ namespace HsumChaint.Domain.Features.Auth.Services
                 .FirstOrDefaultAsync(x => x.UserId == userId);
 
             if (tokenModel == null || tokenModel.TokenHash != hashedRefreshToken || tokenModel.ExpiresAt <= DateTime.UtcNow || tokenModel.RevokedAt != null)
+            {
                 return false;
+            }
 
             return true;
         }
         #endregion
-
     }
 }

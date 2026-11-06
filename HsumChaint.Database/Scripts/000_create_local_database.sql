@@ -87,9 +87,11 @@ CREATE TABLE IF NOT EXISTS User (
     id INT NOT NULL AUTO_INCREMENT,
     role_id INT NOT NULL,
     name VARCHAR(255) NOT NULL,
-    phone VARCHAR(50) NOT NULL,
+    phone VARCHAR(50) NULL,
     password VARCHAR(255) NOT NULL,
     email VARCHAR(255) NULL,
+    phone_verified_at DATETIME NULL,
+    email_verified_at DATETIME NULL,
     contact_phone VARCHAR(50) NULL,
     fcm_token VARCHAR(255) NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -97,10 +99,60 @@ CREATE TABLE IF NOT EXISTS User (
     is_deleted TINYINT(1) NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY UX_User_phone_active (phone, is_deleted),
+    UNIQUE KEY UX_User_email_active (email, is_deleted),
     KEY IX_User_role_id (role_id),
     CONSTRAINT FK_User_Role_role_id
         FOREIGN KEY (role_id) REFERENCES Role (id)
-        ON DELETE RESTRICT
+        ON DELETE RESTRICT,
+    CONSTRAINT CK_User_identifier CHECK (phone IS NOT NULL OR email IS NOT NULL)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS Login_Mode (
+    id INT NOT NULL AUTO_INCREMENT,
+    code VARCHAR(30) NOT NULL,
+    display_name VARCHAR(100) NOT NULL,
+    is_active TINYINT(1) NOT NULL DEFAULT 0,
+    require_phone_verification TINYINT(1) NOT NULL DEFAULT 0,
+    require_email_verification TINYINT(1) NOT NULL DEFAULT 0,
+    updated_by_id INT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY UX_Login_Mode_code (code),
+    KEY IX_Login_Mode_is_active (is_active),
+    KEY IX_Login_Mode_updated_by_id (updated_by_id),
+    CONSTRAINT FK_Login_Mode_User_updated_by_id
+        FOREIGN KEY (updated_by_id) REFERENCES User (id)
+        ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT IGNORE INTO Login_Mode (id, code, display_name, is_active) VALUES
+    (1, 'PHONE_ONLY', 'Phone only', 1),
+    (2, 'EMAIL_ONLY', 'Email only', 0),
+    (3, 'PHONE_OR_EMAIL', 'Phone or email', 0);
+
+CREATE TABLE IF NOT EXISTS Otp_Code (
+    id BIGINT NOT NULL,
+    user_id INT NULL,
+    channel VARCHAR(20) NOT NULL,
+    purpose VARCHAR(30) NOT NULL,
+    destination VARCHAR(255) NOT NULL,
+    code_hash VARCHAR(255) NOT NULL,
+    expires_at DATETIME NOT NULL,
+    is_used TINYINT(1) NOT NULL DEFAULT 0,
+    used_at DATETIME NULL,
+    revoked_at DATETIME NULL,
+    failed_attempt_count INT NOT NULL DEFAULT 0,
+    max_attempt_count INT NOT NULL DEFAULT 5,
+    created_at DATETIME NOT NULL,
+    PRIMARY KEY (id),
+    KEY IX_Otp_Code_user_id (user_id),
+    KEY IX_Otp_Code_lookup (destination, channel, purpose, created_at),
+    KEY IX_Otp_Code_expires_at (expires_at),
+    KEY IX_Otp_Code_cleanup (used_at, expires_at, revoked_at),
+    CONSTRAINT FK_Otp_Code_User_user_id
+        FOREIGN KEY (user_id) REFERENCES User (id)
+        ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 3. Profiles & Spaces

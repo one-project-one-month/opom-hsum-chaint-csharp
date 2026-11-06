@@ -45,6 +45,10 @@ public partial class AppDbContext : DbContext
 
     public virtual DbSet<UserSetting> UserSettings { get; set; }
 
+    public virtual DbSet<LoginMode> LoginModes { get; set; }
+
+    public virtual DbSet<OtpCode> OtpCodes { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Role>(entity =>
@@ -200,8 +204,10 @@ public partial class AppDbContext : DbContext
             entity.HasKey(e => e.Id).HasName("PRIMARY");
 
             entity.ToTable("User");
+            entity.ToTable(t => t.HasCheckConstraint("CK_User_identifier", "phone IS NOT NULL OR email IS NOT NULL"));
 
             entity.HasIndex(e => new { e.PhoneNumber, e.IsDeleted }, "UX_User_phone_active").IsUnique();
+            entity.HasIndex(e => new { e.Email, e.IsDeleted }, "UX_User_email_active").IsUnique();
             entity.HasIndex(e => e.RoleId, "IX_User_role_id");
 
             entity.Property(e => e.Id).HasColumnName("id");
@@ -216,6 +222,12 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.Email)
                 .HasMaxLength(255)
                 .HasColumnName("email");
+            entity.Property(e => e.PhoneVerifiedAt)
+                .HasColumnType("datetime")
+                .HasColumnName("phone_verified_at");
+            entity.Property(e => e.EmailVerifiedAt)
+                .HasColumnType("datetime")
+                .HasColumnName("email_verified_at");
             entity.Property(e => e.FcmToken)
                 .HasMaxLength(255)
                 .HasColumnName("fcm_token");
@@ -241,6 +253,118 @@ public partial class AppDbContext : DbContext
                 .HasForeignKey(d => d.RoleId)
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("FK_User_Role_role_id");
+        });
+
+        modelBuilder.Entity<LoginMode>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("Login_Mode");
+
+            entity.HasIndex(e => e.Code, "UX_Login_Mode_code").IsUnique();
+            entity.HasIndex(e => e.IsActive, "IX_Login_Mode_is_active");
+            entity.HasIndex(e => e.UpdatedById, "IX_Login_Mode_updated_by_id");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Code)
+                .HasMaxLength(30)
+                .HasColumnName("code");
+            entity.Property(e => e.DisplayName)
+                .HasMaxLength(100)
+                .HasColumnName("display_name");
+            entity.Property(e => e.IsActive).HasColumnName("is_active");
+            entity.Property(e => e.RequirePhoneVerification).HasColumnName("require_phone_verification");
+            entity.Property(e => e.RequireEmailVerification).HasColumnName("require_email_verification");
+            entity.Property(e => e.UpdatedById).HasColumnName("updated_by_id");
+            entity.Property(e => e.CreatedAt)
+                .HasColumnType("datetime")
+                .HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("datetime")
+                .HasColumnName("updated_at");
+
+            entity.HasOne(e => e.UpdatedBy)
+                .WithMany()
+                .HasForeignKey(e => e.UpdatedById)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasData(
+                new LoginMode
+                {
+                    Id = 1,
+                    Code = "PHONE_ONLY",
+                    DisplayName = "Phone only",
+                    IsActive = true,
+                    CreatedAt = new DateTime(2026, 11, 6),
+                    UpdatedAt = new DateTime(2026, 11, 6)
+                },
+                new LoginMode
+                {
+                    Id = 2,
+                    Code = "EMAIL_ONLY",
+                    DisplayName = "Email only",
+                    IsActive = false,
+                    CreatedAt = new DateTime(2026, 11, 6),
+                    UpdatedAt = new DateTime(2026, 11, 6)
+                },
+                new LoginMode
+                {
+                    Id = 3,
+                    Code = "PHONE_OR_EMAIL",
+                    DisplayName = "Phone or email",
+                    IsActive = false,
+                    CreatedAt = new DateTime(2026, 11, 6),
+                    UpdatedAt = new DateTime(2026, 11, 6)
+                });
+        });
+
+        modelBuilder.Entity<OtpCode>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("Otp_Code");
+
+            entity.HasIndex(e => e.UserId, "IX_Otp_Code_user_id");
+            entity.HasIndex(e => new { e.Destination, e.Channel, e.Purpose, e.CreatedAt }, "IX_Otp_Code_lookup");
+            entity.HasIndex(e => e.ExpiresAt, "IX_Otp_Code_expires_at");
+            entity.HasIndex(e => new { e.UsedAt, e.ExpiresAt, e.RevokedAt }, "IX_Otp_Code_cleanup");
+
+            entity.Property(e => e.Id)
+                .ValueGeneratedNever()
+                .HasColumnName("id");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.Channel)
+                .HasMaxLength(20)
+                .HasColumnName("channel");
+            entity.Property(e => e.Purpose)
+                .HasMaxLength(30)
+                .HasColumnName("purpose");
+            entity.Property(e => e.Destination)
+                .HasMaxLength(255)
+                .HasColumnName("destination");
+            entity.Property(e => e.CodeHash)
+                .HasMaxLength(255)
+                .HasColumnName("code_hash");
+            entity.Property(e => e.ExpiresAt)
+                .HasColumnType("datetime")
+                .HasColumnName("expires_at");
+            entity.Property(e => e.IsUsed).HasColumnName("is_used");
+            entity.Property(e => e.UsedAt)
+                .HasColumnType("datetime")
+                .HasColumnName("used_at");
+            entity.Property(e => e.RevokedAt)
+                .HasColumnType("datetime")
+                .HasColumnName("revoked_at");
+            entity.Property(e => e.FailedAttemptCount).HasColumnName("failed_attempt_count");
+            entity.Property(e => e.MaxAttemptCount).HasColumnName("max_attempt_count");
+            entity.Property(e => e.CreatedAt)
+                .HasColumnType("datetime")
+                .HasColumnName("created_at");
+
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<MonkProfile>(entity =>
