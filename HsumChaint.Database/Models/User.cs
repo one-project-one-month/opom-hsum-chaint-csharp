@@ -11,11 +11,15 @@ public partial class User
 
     public string Name { get; set; } = null!;
 
-    public string PhoneNumber { get; set; } = null!;
+    public string? PhoneNumber { get; set; }
 
     public string Password { get; set; } = null!;
 
     public string? Email { get; set; }
+
+    public DateTime? PhoneVerifiedAt { get; set; }
+
+    public DateTime? EmailVerifiedAt { get; set; }
 
     public string? ContactPhoneNumber { get; set; }
 
