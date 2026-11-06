@@ -12,7 +12,7 @@ test('admin SSR, session security, filtering, pagination and responsive navigati
   const token = `${Buffer.from('{}').toString('base64url')}.${Buffer.from(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url')}.fixture`;
   const user = { id: 1, name: 'Test Administrator', phoneNumber: '0900000000', roleName: 'Admin', roleId: 1, email: 'admin@example.invalid' };
   const donations = Array.from({ length: 12 }, (_, i) => ({ id: i + 1, donorName: `Fixture Donor ${i + 1}`, monasteryName: `Fixture Monastery ${i % 2 + 1}`, monasterySpaceId: i % 2 + 1, donationType: 1, status: i % 2 ? 5 : 2, amount: null, quantity: 12, note: '<script>alert("unsafe")</script>', createdAt: '2026-10-30T07:00:00Z', pickupTime: null, dropoffTime: null }));
-  donations[10].note = '=1+1';
+  donations[10].note = '=1+1'; donations[8].note = '   =2+2';
   const envelope = (data) => ({ isSuccess: true, message: 'Success', data });
   const fixture = createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
@@ -224,7 +224,18 @@ test('admin SSR, session security, filtering, pagination and responsive navigati
   assert.equal(calls.findLast(c => c.path === '/api/v1/admin/notifications' && c.method === 'POST').payload.type, 2);
   const csv = await context.request.get(`${origin}/donations/export?Status=PendingReview`);
   const csvText = await csv.text();
-  assert.equal(csv.status(), 200); assert.ok(csv.headers()['content-type'].includes('text/csv')); assert.ok(csvText.includes('Donor')); assert.ok(csvText.includes('"\'=1+1"'), 'CSV formulas must be neutralized');
+  assert.equal(csv.status(), 200); assert.ok(csv.headers()['content-type'].includes('text/csv')); assert.ok(csvText.includes('Donor')); assert.ok(csvText.includes('"\'=1+1"'), 'CSV formulas must be neutralized'); assert.ok(csvText.includes('"\'=2+2"'), 'CSV formulas with leading whitespace must be neutralized');
+  const loginResp = await fetch(`${origin}/login`);
+  assert.ok(loginResp.headers.get('strict-transport-security')?.includes('max-age=63072000'), 'HSTS header must be present');
+  assert.ok(loginResp.headers.get('content-security-policy')?.includes("default-src 'self'"), 'CSP header must be present');
+  const rateLimitIp = '198.51.100.42';
+  let lastRateResp;
+  for (let i = 0; i < 61; i++) {
+    lastRateResp = await fetch(`${origin}/login`, { headers: { 'x-forwarded-for': rateLimitIp } });
+    if (lastRateResp.status === 429) break;
+  }
+  assert.equal(lastRateResp?.status, 429, 'Rate limiter must return HTTP 429 after 60 requests');
+  assert.ok(lastRateResp?.headers.get('retry-after'), 'Retry-After header must be present on 429');
   for (const path of ['users', 'monasteries', 'roles']) {
     await page.goto(`${origin}/${path}`);
     await page.locator('main h1').waitFor();
