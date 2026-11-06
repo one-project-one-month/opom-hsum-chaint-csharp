@@ -141,13 +141,13 @@ flowchart LR
 
 ### Users & Profiles
 
-- `GET /api/user` (System Admin)
 - `GET /api/user/{id}`
 - `PUT /api/user`
-- `DELETE /api/user/{id}` (System Admin)
 - `GET /api/user/{id}/invitations`
+- `GET /api/user/{id}/invitations/feed` (Mobile cursor)
 - `GET /api/user/{id}/invited-by-list`
 - `GET /api/user/{id}/notification`
+- `GET /api/user/{id}/notification/feed` (Mobile cursor)
 - `DELETE /api/user/{id}/notification`
 - `GET /api/user/{id}/monk-profile`
 - `PATCH /api/user/{id}/monk-profile`
@@ -158,9 +158,12 @@ flowchart LR
 ### Monasteries
 
 - `GET /api/v1/monasteries` (Public discovery)
+- `GET /api/v1/monasteries/feed` (Mobile cursor discovery)
 - `GET /api/v1/monasteries/search` (Public search)
+- `GET /api/v1/monasteries/search/feed` (Mobile cursor search)
 - `POST /api/v1/monasteries`
 - `GET /api/v1/monasteries/mine`
+- `GET /api/v1/monasteries/mine/feed` (Mobile cursor my monasteries)
 - `GET /api/v1/monasteries/{id}`
 - `PATCH /api/v1/monasteries/{id}`
 - `DELETE /api/v1/monasteries/{id}`
@@ -190,7 +193,10 @@ flowchart LR
 - `POST /api/v1/donations/recurring/request`
 - `POST /api/v1/donations/recurring/manual`
 - `GET /api/v1/donations`
+- `GET /api/v1/donations/feed` (Mobile cursor)
+- `GET /api/v1/donations/statuses` (Metadata)
 - `GET /api/v1/donations/{id}`
+- `PUT /api/v1/donations/{id}/status` (Status transition)
 - `GET /api/v1/donations/calendar`
 - `POST /api/v1/donations/{id}/review`
 - `PUT /api/v1/donations/{id}/schedule`
@@ -203,16 +209,6 @@ flowchart LR
 - `POST /api/v1/notifications/create`
 - `PATCH /api/v1/notifications/read-noti`
 - `DELETE /api/v1/notifications/delete`
-
-### System RBAC
-
-- `GET /api/v1/roles`
-- `GET /api/v1/roles/{id}`
-- `POST /api/v1/roles`
-- `PUT /api/v1/roles/{id}`
-- `DELETE /api/v1/roles/{id}`
-- `POST /api/v1/roles/assign-permissions`
-- `GET /api/v1/permissions`
 
 ## 5) Development commands
 
@@ -240,6 +236,32 @@ User, invitation, notification, monastery, member, donation, role, and permissio
 ```
 
 Page values must be positive and produce an offset within the supported integer range. Invalid pagination returns HTTP 400. The shared controller mapping returns HTTP 200 for success, 404 for missing records, 403 for denied access, and 400 for other service failures. Clients that previously consumed whole collections must request subsequent pages using the pagination metadata.
+
+### Cursor-based keyset pagination (Mobile feed endpoints)
+
+Mobile feed endpoints use cursor-based keyset pagination via `CursorPagedResult<T>` to provide O(1) seek performance for infinite-scrolling lists without offset skips or duplicates:
+
+- `GET /api/v1/donations/feed`
+- `GET /api/v1/monasteries/feed`
+- `GET /api/v1/monasteries/search/feed`
+- `GET /api/v1/monasteries/mine/feed`
+- `GET /api/user/{id}/notification/feed`
+- `GET /api/user/{id}/invitations/feed`
+
+These endpoints accept `lastId` (integer, optional; omit on initial fetch) and `pageSize` (default `15`). Responses return `data` along with `pagination: { nextCursor, hasNextPage, pageSize }`:
+
+```json
+{
+  "isSuccess": true,
+  "message": "Feed retrieved successfully.",
+  "data": [],
+  "pagination": {
+    "nextCursor": 15,
+    "hasNextPage": true,
+    "pageSize": 15
+  }
+}
+```
 
 - Build: `dotnet build HsumChaint.slnx`
 - Tests: `dotnet test HsumChaint.Tests/HsumChaint.Tests.csproj`
