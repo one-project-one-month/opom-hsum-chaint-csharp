@@ -11,6 +11,8 @@ using HsumChaint.Database.Models;
 using HsumChaint.Shared.Configuration;
 using System.Text;
 using System.Linq;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 
 namespace HsumChaint.API.Extensions;
 
@@ -103,5 +105,40 @@ public static class DependencyInjectionExtensions
         }
 
         return Path.Combine(contentRoot, credentialPath);
+    }
+    public static IServiceCollection AddAppRateLimiting(this IServiceCollection services)
+    {
+        services.AddRateLimiter(options =>
+        {
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.OnRejected = async (context, cancellationToken) =>
+            {
+                context.HttpContext.Response.ContentType = "application/json";
+                await context.HttpContext.Response.WriteAsJsonAsync(new
+                {
+                    IsSuccess = false,
+                    Message = "Too many requests. Please try again later."
+                }, cancellationToken: cancellationToken);
+            };
+
+            options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+            {
+                var forwardedFor = httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+                var clientIp = !string.IsNullOrWhiteSpace(forwardedFor)
+                    ? forwardedFor.Split(',')[0].Trim()
+                    : httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonymous";
+
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: clientIp,
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        AutoReplenishment = true,
+                        PermitLimit = 60,
+                        Window = TimeSpan.FromMinutes(1)
+                    });
+            });
+        });
+
+        return services;
     }
 }

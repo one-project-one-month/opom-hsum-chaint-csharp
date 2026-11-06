@@ -73,6 +73,12 @@ public class AdminApiTests
         Assert.Equal("Second", page.RootElement.GetProperty("data")[0].GetProperty("monasteryName").GetString());
         using var filtered = JsonDocument.Parse(await client.GetStringAsync("/api/v1/admin/donations?Status=PendingReview&Search=Alpha"));
         Assert.Equal(10, filtered.RootElement.GetProperty("data")[0].GetProperty("id").GetInt32());
+        using var monasteryFiltered = JsonDocument.Parse(await client.GetStringAsync("/api/v1/admin/donations?Monastery=First"));
+        Assert.Single(monasteryFiltered.RootElement.GetProperty("data").EnumerateArray());
+        Assert.Equal("First", monasteryFiltered.RootElement.GetProperty("data")[0].GetProperty("monasteryName").GetString());
+        using var spaceIdFiltered = JsonDocument.Parse(await client.GetStringAsync("/api/v1/admin/donations?MonasterySpaceId=20"));
+        Assert.Single(spaceIdFiltered.RootElement.GetProperty("data").EnumerateArray());
+        Assert.Equal(20, spaceIdFiltered.RootElement.GetProperty("data")[0].GetProperty("id").GetInt32());
         using var dateFiltered = JsonDocument.Parse(await client.GetStringAsync("/api/v1/admin/donations?FromDate=2026-10-02T00:00:00Z"));
         Assert.Equal(1, dateFiltered.RootElement.GetProperty("data").GetArrayLength());
         foreach (var query in new[] { "PageNumber=0", "PageSize=101", "Status=99", "FromDate=2026-10-03&ToDate=2026-10-01" })
@@ -146,5 +152,41 @@ public class AdminApiTests
         admin.RoleId = 3;
         await db.SaveChangesAsync();
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/v1/admin/donations")).StatusCode);
+    }
+
+    [Fact]
+    public async Task RateLimiting_ReturnsTooManyRequests_WhenLimitExceeded()
+    {
+        var databaseName = Guid.NewGuid().ToString();
+        await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("environment", "Development");
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<AppDbContext>();
+                services.RemoveAll<DbContextOptions<AppDbContext>>();
+                services.RemoveAll<IDbContextOptionsConfiguration<AppDbContext>>();
+                services.AddDbContext<AppDbContext>(options => options.UseInMemoryDatabase(databaseName));
+            });
+        });
+        using var client = factory.CreateClient(new() { BaseAddress = new Uri("https://localhost") });
+
+        // Send requests with a dedicated mock client IP
+        var testIp = "192.0.2.99";
+        client.DefaultRequestHeaders.Add("X-Forwarded-For", testIp);
+
+        HttpResponseMessage? lastResponse = null;
+        for (int i = 0; i < 61; i++)
+        {
+            lastResponse?.Dispose();
+            lastResponse = await client.GetAsync("/api/v1/donations/public?pageNumber=1&pageSize=1");
+            if (lastResponse.StatusCode == HttpStatusCode.TooManyRequests)
+                break;
+        }
+
+        Assert.NotNull(lastResponse);
+        Assert.Equal(HttpStatusCode.TooManyRequests, lastResponse.StatusCode);
+        var body = await lastResponse.Content.ReadAsStringAsync();
+        Assert.Contains("Too many requests", body);
     }
 }
