@@ -39,6 +39,7 @@ var corsOrigins = configuredCorsOrigins.Length > 0
 
 builder.Services
     .AddApiServices()
+    .AddAppRateLimiting()
     .AddJwtAuthentication(builder.Configuration);
 
 builder.AddDomain();
@@ -99,6 +100,8 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseCors(localFlutterCorsPolicy);
+
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
