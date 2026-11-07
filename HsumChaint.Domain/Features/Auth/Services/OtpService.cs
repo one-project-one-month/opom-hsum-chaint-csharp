@@ -77,15 +77,26 @@ namespace HsumChaint.Domain.Features.Auth.Services
                 }
 
                 var user = await _context.Users.FirstOrDefaultAsync(x => x.Email == destination && x.IsDeleted == false);
-                if (purpose is OtpPurposes.VerifyEmail or OtpPurposes.Login or OtpPurposes.ResetPassword or OtpPurposes.ChangePassword && user == null)
+                if (purpose == OtpPurposes.VerifyEmail)
+                {
+                    if (user != null && user.EmailVerifiedAt != null)
+                    {
+                        return Result<OtpResponseDto>.Failure("A user with this email is already registered.");
+                    }
+                }
+                else if (purpose is OtpPurposes.Login or OtpPurposes.ResetPassword or OtpPurposes.ChangePassword && user == null)
                 {
                     return Result<OtpResponseDto>.Failure("Unable to send OTP.");
                 }
 
                 // Revoke previous unused codes for the destination
-                await _context.OtpCodes
+                var unusedOtps = await _context.OtpCodes
                     .Where(x => x.Destination == destination && x.Channel == channel && x.Purpose == purpose && !x.IsUsed && x.RevokedAt == null)
-                    .ExecuteUpdateAsync(s => s.SetProperty(x => x.RevokedAt, now));
+                    .ToListAsync();
+                foreach (var oldOtp in unusedOtps)
+                {
+                    oldOtp.RevokedAt = now;
+                }
 
                 var code = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
                 var expires = now.AddMinutes(_options.LifetimeMinutes);

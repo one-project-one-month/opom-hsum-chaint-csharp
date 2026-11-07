@@ -372,4 +372,174 @@ public class PasswordManagementTests
         Assert.False(result.IsSuccess);
         Assert.Equal("A user with this identifier already exists.", result.Message);
     }
+
+    [Fact]
+    public async Task Register_WithValidOtp_WhenEmailVerificationRequired_SucceedsAndReturnsTokens()
+    {
+        await using var db = CreateDbContext();
+        var otpHasher = new PasswordHasher<OtpCode>();
+        var otp = new OtpCode
+        {
+            Id = 9001,
+            Destination = "newuser@example.com",
+            Channel = OtpChannels.Email,
+            Purpose = OtpPurposes.VerifyEmail,
+            ExpiresAt = DateTime.UtcNow.AddMinutes(5),
+            IsUsed = false,
+            FailedAttemptCount = 0,
+            MaxAttemptCount = 5,
+            CreatedAt = DateTime.UtcNow
+        };
+        otp.CodeHash = otpHasher.HashPassword(otp, "654321");
+        db.OtpCodes.Add(otp);
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db);
+        var result = await service.Register(new RegisterRequestDto
+        {
+            Name = "New Verified User",
+            Email = "newuser@example.com",
+            PhoneNumber = "0911112222",
+            Password = "Password123!",
+            RoleId = 3,
+            Otp = "654321"
+        });
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Register Successful", result.Message);
+        Assert.NotNull(result.Data);
+        Assert.False(string.IsNullOrWhiteSpace(result.Data!.AccessToken));
+        Assert.False(string.IsNullOrWhiteSpace(result.Data.RefreshToken));
+
+        var createdUser = await db.Users.FirstOrDefaultAsync(u => u.Email == "newuser@example.com");
+        Assert.NotNull(createdUser);
+        Assert.NotNull(createdUser!.EmailVerifiedAt);
+
+        var updatedOtp = await db.OtpCodes.FindAsync(otp.Id);
+        Assert.True(updatedOtp!.IsUsed);
+        Assert.Equal(createdUser.Id, updatedOtp.UserId);
+    }
+
+    [Fact]
+    public async Task Register_WithInvalidOtp_WhenEmailVerificationRequired_FailsAndDoesNotCreateUser()
+    {
+        await using var db = CreateDbContext();
+        var otpHasher = new PasswordHasher<OtpCode>();
+        var otp = new OtpCode
+        {
+            Id = 9002,
+            Destination = "failuser@example.com",
+            Channel = OtpChannels.Email,
+            Purpose = OtpPurposes.VerifyEmail,
+            ExpiresAt = DateTime.UtcNow.AddMinutes(5),
+            IsUsed = false,
+            FailedAttemptCount = 0,
+            MaxAttemptCount = 5,
+            CreatedAt = DateTime.UtcNow
+        };
+        otp.CodeHash = otpHasher.HashPassword(otp, "654321");
+        db.OtpCodes.Add(otp);
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db);
+        var result = await service.Register(new RegisterRequestDto
+        {
+            Name = "Fail User",
+            Email = "failuser@example.com",
+            PhoneNumber = "0933334444",
+            Password = "Password123!",
+            RoleId = 3,
+            Otp = "000000" // Wrong code
+        });
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("Invalid or expired OTP.", result.Message);
+        Assert.Null(result.Data);
+
+        var userInDb = await db.Users.FirstOrDefaultAsync(u => u.Email == "failuser@example.com");
+        Assert.Null(userInDb);
+    }
+
+    [Fact]
+    public async Task Register_WithMissingOtp_WhenEmailVerificationRequired_Fails()
+    {
+        await using var db = CreateDbContext();
+        var service = CreateService(db);
+        var result = await service.Register(new RegisterRequestDto
+        {
+            Name = "No Otp User",
+            Email = "nootp@example.com",
+            PhoneNumber = "0955556666",
+            Password = "Password123!",
+            RoleId = 3,
+            Otp = null
+        });
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("Invalid or expired OTP.", result.Message);
+    }
+
+    [Fact]
+    public async Task OtpService_Request_AllowsNewEmail_AndRejectsAlreadyRegisteredVerifiedEmail()
+    {
+        await using var db = CreateDbContext();
+        var existingUser = new InfrastructureUser
+        {
+            Id = 501,
+            Name = "Existing Verified",
+            Email = "alreadyexists@example.com",
+            PhoneNumber = "0977889900",
+            Password = "Password123!",
+            RoleId = 3,
+            EmailVerifiedAt = DateTime.UtcNow,
+            IsDeleted = false
+        };
+        db.Users.Add(existingUser);
+        await db.SaveChangesAsync();
+
+        var otpService = new OtpService(
+            db,
+            new DefaultTestLoginModeService(),
+            new TestEmailSender(),
+            new PasswordHasher<OtpCode>(),
+            Options.Create(new HsumChaint.Domain.Configuration.OtpOptions()),
+            new TestMediator());
+
+        // 1. Should reject if email is already verified
+        var rejectResult = await otpService.Request(new RequestOtpDto
+        {
+            Destination = "alreadyexists@example.com",
+            Channel = OtpChannels.Email,
+            Purpose = OtpPurposes.VerifyEmail
+        });
+        Assert.False(rejectResult.IsSuccess);
+        Assert.Equal("A user with this email is already registered.", rejectResult.Message);
+
+        // 2. Should succeed for new unregistered email
+        var successResult = await otpService.Request(new RequestOtpDto
+        {
+            Destination = "brandnewemail@example.com",
+            Channel = OtpChannels.Email,
+            Purpose = OtpPurposes.VerifyEmail
+        });
+        Assert.True(successResult.IsSuccess);
+        Assert.Equal("OTP has been sent.", successResult.Message);
+        Assert.NotNull(await db.OtpCodes.FirstOrDefaultAsync(o => o.Destination == "brandnewemail@example.com"));
+    }
+
+    private sealed class TestEmailSender : HsumChaint.Domain.Features.Auth.ServiceInterfaces.IEmailSender
+    {
+        public Task SendOtpAsync(string email, string otp, DateTime expiresAt, string? purpose = null) => Task.CompletedTask;
+    }
+
+    private sealed class TestMediator : MediatR.IMediator
+    {
+        public Task Publish(object notification, System.Threading.CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task Publish<TNotification>(TNotification notification, System.Threading.CancellationToken cancellationToken = default) where TNotification : MediatR.INotification => Task.CompletedTask;
+        public Task<TResponse> Send<TResponse>(MediatR.IRequest<TResponse> request, System.Threading.CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task Send<TRequest>(TRequest request, System.Threading.CancellationToken cancellationToken = default) where TRequest : MediatR.IRequest => throw new NotSupportedException();
+        public Task<object?> Send(object request, System.Threading.CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public IAsyncEnumerable<TResponse> CreateStream<TResponse>(MediatR.IStreamRequest<TResponse> request, System.Threading.CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public IAsyncEnumerable<object?> CreateStream(object request, System.Threading.CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    }
 }

@@ -68,19 +68,19 @@ namespace HsumChaint.Domain.Features.Auth.Services
         }
 
         #region Register
-        public async Task<Result> Register(RegisterRequestDto reqModel)
+        public async Task<Result<LoginResponseDto>> Register(RegisterRequestDto reqModel)
         {
             try
             {
                 if (!reqModel.Name.TryNormalizeRequiredString(out var normalizedName) || !reqModel.Password.TryNormalizeRequiredString(out _))
                 {
-                    return Result.Failure("Name and password are required.");
+                    return Result<LoginResponseDto>.Failure("Name and password are required.");
                 }
 
                 var modeResult = await _loginModeService.GetActiveMode();
                 if (modeResult.IsFailure || modeResult.Data is null)
                 {
-                    return Result.Failure(modeResult.Message);
+                    return Result<LoginResponseDto>.Failure(modeResult.Message);
                 }
 
                 var mode = modeResult.Data;
@@ -88,46 +88,52 @@ namespace HsumChaint.Domain.Features.Auth.Services
                 reqModel.PhoneNumber = reqModel.PhoneNumber.NormalizeOptionalString();
                 reqModel.Email = reqModel.Email.NormalizeOptionalString()?.ToLowerInvariant();
                 reqModel.ContactPhoneNumber = reqModel.ContactPhoneNumber.NormalizeOptionalString();
+                var otpCode = reqModel.Otp.NormalizeOptionalString();
 
                 if ((mode.Code == LoginModeCodes.PhoneOnly && reqModel.PhoneNumber is null)
                     || (mode.Code == LoginModeCodes.EmailOnly && reqModel.Email is null)
                     || (mode.Code == LoginModeCodes.PhoneOrEmail && reqModel.PhoneNumber is null && reqModel.Email is null))
                 {
-                    return Result.Failure("The active login mode requires a valid phone number or email address.");
+                    return Result<LoginResponseDto>.Failure("The active login mode requires a valid phone number or email address.");
                 }
 
                 if (!reqModel.Email.IsValidEmail())
                 {
-                    return Result.Failure("Email address is invalid.");
+                    return Result<LoginResponseDto>.Failure("Email address is invalid.");
                 }
 
                 if (reqModel.PhoneNumber is not null && !Regex.IsMatch(reqModel.PhoneNumber, @"^\+?[0-9]+$"))
                 {
-                    return Result.Failure("Phone number must contain English digits only.");
+                    return Result<LoginResponseDto>.Failure("Phone number must contain English digits only.");
                 }
 
                 if (reqModel.ContactPhoneNumber is string contactPhoneNumber
                     && !Regex.IsMatch(contactPhoneNumber, @"^\+?[0-9]+$"))
                 {
-                    return Result.Failure("Contact phone number must contain English digits only.");
+                    return Result<LoginResponseDto>.Failure("Contact phone number must contain English digits only.");
                 }
 
                 if (!Regex.IsMatch(reqModel.Password!, @"^[\x21-\x7E]+$"))
                 {
-                    return Result.Failure("Password must contain English characters and symbols only.");
+                    return Result<LoginResponseDto>.Failure("Password must contain English characters and symbols only.");
                 }
 
                 var selectedRole = await _dbContext.Roles.FirstOrDefaultAsync(r => r.Id == reqModel.RoleId && !r.IsDeleted);
                 if (selectedRole == null)
                 {
-                    return Result.Failure("Role not found.");
+                    return Result<LoginResponseDto>.Failure("Role not found.");
                 }
 
                 var existingUser = await _dbContext.Users.FirstOrDefaultAsync(x => x.IsDeleted == false
                     && ((reqModel.PhoneNumber != null && x.PhoneNumber == reqModel.PhoneNumber)
                         || (reqModel.Email != null && x.Email == reqModel.Email)));
 
+                var now = DateTime.UtcNow;
+                var isAdminCreation = reqModel.GetType().Name == "AdminCreateUser";
+                var requiresEmailVerification = !isAdminCreation && mode.RequireEmailVerification && !string.IsNullOrWhiteSpace(reqModel.Email);
+
                 #region Duplicate / Unverified validation
+                UserEntity userToLogin;
                 if (existingUser != null)
                 {
                     // If user registered earlier with this email but abandoned registration before verification, allow update and re-verification.
@@ -138,7 +144,7 @@ namespace HsumChaint.Domain.Features.Auth.Services
                         existingUser.Password = _passwordHasher.HashPasswordSafe(existingUser, reqModel.Password!);
                         existingUser.RoleId = reqModel.RoleId;
                         existingUser.ContactPhoneNumber = reqModel.ContactPhoneNumber;
-                        existingUser.UpdatedAt = DateTime.UtcNow;
+                        existingUser.UpdatedAt = now;
 
                         if (selectedRole.Name == SystemRoles.Monk)
                         {
@@ -159,13 +165,77 @@ namespace HsumChaint.Domain.Features.Auth.Services
                             }
                         }
 
+                        // If OTP was provided, verify and mark verified with auto-login; otherwise prompt to verify email with OTP.
+                        if (!string.IsNullOrWhiteSpace(otpCode))
+                        {
+                            var otp = await _dbContext.OtpCodes
+                                .OrderByDescending(x => x.CreatedAt)
+                                .FirstOrDefaultAsync(x => x.Destination == reqModel.Email && x.Channel == OtpChannels.Email && x.Purpose == OtpPurposes.VerifyEmail);
+
+                            if (otp != null && !otp.IsUsed && otp.RevokedAt == null && otp.ExpiresAt > now && otp.FailedAttemptCount < otp.MaxAttemptCount
+                                && _otpHasher.VerifyHashedPassword(otp, otp.CodeHash, otpCode) != PasswordVerificationResult.Failed)
+                            {
+                                otp.IsUsed = true;
+                                otp.UsedAt = now;
+                                otp.UserId = existingUser.Id;
+                                existingUser.EmailVerifiedAt = now;
+                                await _dbContext.SaveChangesAsync();
+
+                                var perms = await _rolePermissionService.GetUserPermissions(existingUser.Id);
+                                string tok = _jwtOptions.GenerateJwtToken(existingUser.Id, existingUser.PhoneNumber ?? existingUser.Email!, selectedRole.Name, perms);
+                                string refTok = await this.GenerateAndSaveRefreshToken(new GenerateRefreshTokenDto { UserId = existingUser.Id });
+
+                                return Result<LoginResponseDto>.Success(new LoginResponseDto
+                                {
+                                    AccessToken = tok,
+                                    RoleId = existingUser.RoleId,
+                                    RoleName = selectedRole.Name,
+                                    Permissions = perms,
+                                    ID = existingUser.Id,
+                                    RefreshToken = refTok
+                                }, "Register Successful");
+                            }
+                        }
+
                         await _dbContext.SaveChangesAsync();
-                        return Result.Success("Account updated. Please verify your email with the OTP.");
+                        return Result<LoginResponseDto>.Success(new LoginResponseDto(), "Account updated. Please verify your email with the OTP.");
                     }
 
-                    return Result.Failure("A user with this identifier already exists.");
+                    return Result<LoginResponseDto>.Failure("A user with this identifier already exists.");
                 }
                 #endregion
+
+                OtpCode? newOtp = null;
+                if (requiresEmailVerification)
+                {
+                    if (string.IsNullOrWhiteSpace(otpCode) || otpCode.Length < 6)
+                    {
+                        return Result<LoginResponseDto>.Failure("Invalid or expired OTP.");
+                    }
+
+                    newOtp = await _dbContext.OtpCodes
+                        .OrderByDescending(x => x.CreatedAt)
+                        .FirstOrDefaultAsync(x => x.Destination == reqModel.Email && x.Channel == OtpChannels.Email && x.Purpose == OtpPurposes.VerifyEmail);
+
+                    if (newOtp == null || newOtp.IsUsed || newOtp.RevokedAt != null || newOtp.ExpiresAt <= now || newOtp.FailedAttemptCount >= newOtp.MaxAttemptCount)
+                    {
+                        return Result<LoginResponseDto>.Failure("Invalid or expired OTP.");
+                    }
+
+                    if (_otpHasher.VerifyHashedPassword(newOtp, newOtp.CodeHash, otpCode) == PasswordVerificationResult.Failed)
+                    {
+                        newOtp.FailedAttemptCount++;
+                        if (newOtp.FailedAttemptCount >= newOtp.MaxAttemptCount)
+                        {
+                            newOtp.RevokedAt = now;
+                        }
+                        await _dbContext.SaveChangesAsync();
+                        return Result<LoginResponseDto>.Failure("Invalid or expired OTP.");
+                    }
+
+                    newOtp.IsUsed = true;
+                    newOtp.UsedAt = now;
+                }
 
                 UserEntity user = new UserEntity();
                 var hashedPassword = _passwordHasher.HashPasswordSafe(user, reqModel.Password!);
@@ -178,7 +248,8 @@ namespace HsumChaint.Domain.Features.Auth.Services
                     RoleId = reqModel.RoleId,
                     Email = reqModel.Email,
                     ContactPhoneNumber = reqModel.ContactPhoneNumber,
-                    CreatedAt = DateTime.UtcNow,
+                    CreatedAt = now,
+                    EmailVerifiedAt = requiresEmailVerification || isAdminCreation || (reqModel.Email != null && !mode.RequireEmailVerification) ? now : null,
                     IsDeleted = false
                 };
 
@@ -197,11 +268,31 @@ namespace HsumChaint.Domain.Features.Auth.Services
                     await _dbContext.SaveChangesAsync();
                 }
 
-                return Result.Success("Register Successful");
+                if (newOtp != null && newOtp.UserId == null)
+                {
+                    newOtp.UserId = registerUser.Id;
+                    await _dbContext.SaveChangesAsync();
+                }
+
+                userToLogin = registerUser;
+
+                var permissions = await _rolePermissionService.GetUserPermissions(userToLogin.Id);
+                string token = _jwtOptions.GenerateJwtToken(userToLogin.Id, userToLogin.PhoneNumber ?? userToLogin.Email!, selectedRole.Name, permissions);
+                string refreshToken = await this.GenerateAndSaveRefreshToken(new GenerateRefreshTokenDto { UserId = userToLogin.Id });
+
+                return Result<LoginResponseDto>.Success(new LoginResponseDto
+                {
+                    AccessToken = token,
+                    RoleId = userToLogin.RoleId,
+                    RoleName = selectedRole.Name,
+                    Permissions = permissions,
+                    ID = userToLogin.Id,
+                    RefreshToken = refreshToken
+                }, "Register Successful");
             }
             catch (Exception ex)
             {
-                return Result.Failure($"application layer err: {ex.Message} {ex.InnerException}");
+                return Result<LoginResponseDto>.Failure($"application layer err: {ex.Message} {ex.InnerException}");
             }
         }
         #endregion

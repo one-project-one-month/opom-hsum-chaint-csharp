@@ -30,6 +30,15 @@ namespace HsumChaint.API.Features.Auth.Controllers
         }
 
         #region Register
+        [HttpPost("register/request-otp")]
+        public async Task<IActionResult> RequestRegisterOtp([FromBody] RequestOtpDto request)
+        {
+            request.Channel = OtpChannels.Email;
+            request.Purpose = OtpPurposes.VerifyEmail;
+            var result = await _otpService.Request(request);
+            return result.ToActionResult();
+        }
+
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterRequestDto reqModel, [FromServices] AppDbContext db)
         {
