@@ -77,7 +77,7 @@ namespace HsumChaint.Domain.Features.Auth.Services
                 }
 
                 var user = await _context.Users.FirstOrDefaultAsync(x => x.Email == destination && x.IsDeleted == false);
-                if (purpose is OtpPurposes.VerifyEmail or OtpPurposes.Login or OtpPurposes.ResetPassword && user == null)
+                if (purpose is OtpPurposes.VerifyEmail or OtpPurposes.Login or OtpPurposes.ResetPassword or OtpPurposes.ChangePassword && user == null)
                 {
                     return Result<OtpResponseDto>.Failure("Unable to send OTP.");
                 }
@@ -108,7 +108,7 @@ namespace HsumChaint.Domain.Features.Auth.Services
 
                 try
                 {
-                    await _emailSender.SendOtpAsync(destination, code, expires);
+                    await _emailSender.SendOtpAsync(destination, code, expires, purpose);
                 }
                 catch
                 {
@@ -191,7 +191,7 @@ namespace HsumChaint.Domain.Features.Auth.Services
         #region Helpers
         private static bool ValidPurpose(string? value)
         {
-            return value is OtpPurposes.VerifyEmail or OtpPurposes.VerifyPhone or OtpPurposes.Login or OtpPurposes.ResetPassword;
+            return value is OtpPurposes.VerifyEmail or OtpPurposes.VerifyPhone or OtpPurposes.Login or OtpPurposes.ResetPassword or OtpPurposes.ChangePassword;
         }
 
         private static long NewId()

@@ -18,12 +18,22 @@ namespace HsumChaint.Domain.Features.Auth.Services
         }
 
         #region Send OTP
-        public async Task SendOtpAsync(string email, string otp, DateTime expiresAt)
+        public async Task SendOtpAsync(string email, string otp, DateTime expiresAt, string? purpose = null)
         {
+            var subject = purpose switch
+            {
+                OtpPurposes.ResetPassword => "Reset your HsumChaint password",
+                OtpPurposes.ChangePassword => "Change your HsumChaint password",
+                OtpPurposes.VerifyEmail => "Verify your HsumChaint email",
+                _ => "Your HsumChaint verification code"
+            };
+
+            var body = $"Your verification code is: {otp}\n\nThis code will expire in 5 minutes.\nDo not share this code with anyone. If you did not request it, you can safely ignore this email.";
+
             using var message = new MailMessage(new MailAddress(_options.FromEmail, _options.FromName), new MailAddress(email))
             {
-                Subject = "Your HsumChaint verification code",
-                Body = $"Your OTP is {otp}. It expires at {expiresAt:O}. Do not share this code. If you did not request it, ignore this email."
+                Subject = subject,
+                Body = body
             };
 
             using var client = new SmtpClient(_options.Host, _options.Port)

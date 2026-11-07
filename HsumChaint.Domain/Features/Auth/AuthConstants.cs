@@ -19,5 +19,6 @@ namespace HsumChaint.Domain.Features.Auth
         public const string VerifyPhone = "VERIFY_PHONE";
         public const string Login = "LOGIN";
         public const string ResetPassword = "RESET_PASSWORD";
+        public const string ChangePassword = "CHANGE_PASSWORD";
     }
 }
