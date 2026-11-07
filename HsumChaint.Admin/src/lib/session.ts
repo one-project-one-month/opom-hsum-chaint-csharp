@@ -36,7 +36,7 @@ export const requireAdmin = cache(async () => {
   const session = await readSession();
   if (!session) redirect('/login');
   try {
-    const { data: user } = await api<User>(`/api/User/${session.userId}`, session.accessToken);
+    const { data: user } = await api<User>(`/api/v1/User/${session.userId}`, session.accessToken);
     if (user.roleName !== 'Admin') redirect('/login?reason=role');
     return { session, user };
   } catch (error) {

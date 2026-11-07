@@ -39,8 +39,8 @@ test('admin SSR, session security, filtering, pagination and responsive navigati
       }
       res.end(JSON.stringify(envelope({}))); return;
     }
-    if (url.pathname === '/api/User/1') { res.end(JSON.stringify(envelope(user))); return; }
-    if (url.pathname === '/api/User/1/settings') { res.end(JSON.stringify(envelope({ pickupTime: null, dropoffTime: null, pickupNotificationTime: null, dropoffNotificationTime: null }))); return; }
+    if (url.pathname === '/api/v1/User/1') { res.end(JSON.stringify(envelope(user))); return; }
+    if (url.pathname === '/api/v1/User/1/settings') { res.end(JSON.stringify(envelope({ pickupTime: null, dropoffTime: null, pickupNotificationTime: null, dropoffNotificationTime: null }))); return; }
     if (url.pathname === '/api/v1/admin/monasteries/1') { res.end(JSON.stringify(envelope({ id: 1, monasteryName: 'Fixture Monastery', address: 'Yangon', isOwner: true }))); return; }
     if (url.pathname === '/api/v1/monasteries/1/members') { res.end(JSON.stringify(envelope([{ id: 1, userId: 1, userName: 'Owner fixture', phoneNumber: '0901', spaceRoleName: 'Owner', spaceRoleId: 1, isOwner: true }, { id: 2, userId: 2, userName: 'Member fixture', phoneNumber: '0902', spaceRoleName: 'Viewer', spaceRoleId: 4, isOwner: false }]))); return; }
     if (url.pathname === '/api/v1/admin/invitations') { res.end(JSON.stringify(envelope([{ id: 1, invitedUserId: 2, userName: 'Invited fixture', monasteryName: 'Fixture Monastery', status: 0, spaceRoleName: 'Viewer' }]))); return; }
@@ -56,7 +56,7 @@ test('admin SSR, session security, filtering, pagination and responsive navigati
       const total = rows.length;
       res.end(JSON.stringify({ ...envelope(rows.slice((page - 1) * size, page * size)), pagination: { pageNumber: page, totalCount: total, totalPages: Math.ceil(total / size), hasPreviousPage: page > 1, hasNextPage: page * size < total } })); return;
     }
-    const data = url.pathname === '/api/User' ? [user] : url.pathname === '/api/v1/roles' ? [{ id: 1, name: 'Admin', permissions: [{ id: 1, name: 'Roles.View' }] }] : [{ id: 1, monasteryName: 'Fixture Monastery', address: 'Yangon', description: 'Fixture' }];
+    const data = url.pathname === '/api/v1/User' ? [user] : url.pathname === '/api/v1/roles' ? [{ id: 1, name: 'Admin', permissions: [{ id: 1, name: 'Roles.View' }] }] : [{ id: 1, monasteryName: 'Fixture Monastery', address: 'Yangon', description: 'Fixture' }];
     res.end(JSON.stringify(envelope(data)));
   });
   await new Promise(resolve => fixture.listen(0, '127.0.0.1', resolve));

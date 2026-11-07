@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace HsumChaint.API.Features.User.Controllers
 {
     [Authorize]
-    [Route("api/[controller]")]
+    [Route("api/v1/[controller]")]
     [ApiController]
     public class UserController : ControllerBase
     {
