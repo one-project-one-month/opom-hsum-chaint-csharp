@@ -23,7 +23,7 @@ public static class StageConfigurationExtensions
         }
 
         var customSettingsPath = Path.Combine(configDirectory, $"custom-settings-{stage}.json");
-        if (File.Exists(customSettingsPath))
+        if (File.Exists(customSettingsPath) && new FileInfo(customSettingsPath).Length > 0)
         {
             builder.Configuration.AddJsonFile(customSettingsPath, optional: true, reloadOnChange: true);
         }
