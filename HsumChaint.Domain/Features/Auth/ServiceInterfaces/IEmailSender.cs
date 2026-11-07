@@ -5,6 +5,6 @@ namespace HsumChaint.Domain.Features.Auth.ServiceInterfaces
 {
     public interface IEmailSender
     {
-        Task SendOtpAsync(string email, string otp, DateTime expiresAt);
+        Task SendOtpAsync(string email, string otp, DateTime expiresAt, string? purpose = null);
     }
 }

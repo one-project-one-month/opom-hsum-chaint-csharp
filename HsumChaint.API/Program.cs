@@ -72,7 +72,15 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy(localFlutterCorsPolicy, policy =>
     {
-        if (corsOrigins.Length > 0)
+        if (builder.Environment.IsDevelopment())
+        {
+            policy
+                .SetIsOriginAllowed(_ => true)
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
+        }
+        else if (corsOrigins.Length > 0)
         {
             policy
                 .WithOrigins(corsOrigins)
@@ -97,9 +105,12 @@ if (app.Environment.IsDevelopment())
     app.MapGet("/", () => Results.Redirect("/scalar/v1")).ExcludeFromDescription();
 }
 
-app.UseHttpsRedirection();
-
 app.UseCors(localFlutterCorsPolicy);
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseRateLimiter();
 

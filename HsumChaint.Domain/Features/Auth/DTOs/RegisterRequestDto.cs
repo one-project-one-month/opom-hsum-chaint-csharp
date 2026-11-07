@@ -14,10 +14,6 @@ namespace HsumChaint.Domain.Features.Auth.DTOs
         public string? ContactPhoneNumber { get; set; }
         public string? MonasteryName { get; set; }
         public string? MonasteryAddress { get; set; }
-
+        public string? Otp { get; set; }
     }
 }
-
-
-
-

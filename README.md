@@ -141,19 +141,19 @@ flowchart LR
 
 ### Users & Profiles
 
-- `GET /api/user/{id}`
-- `PUT /api/user`
-- `GET /api/user/{id}/invitations`
-- `GET /api/user/{id}/invitations/feed` (Mobile cursor)
-- `GET /api/user/{id}/invited-by-list`
-- `GET /api/user/{id}/notification`
-- `GET /api/user/{id}/notification/feed` (Mobile cursor)
-- `DELETE /api/user/{id}/notification`
-- `GET /api/user/{id}/monk-profile`
-- `PATCH /api/user/{id}/monk-profile`
-- `DELETE /api/user/{id}/monk-profile`
-- `GET /api/user/{id}/settings`
-- `PUT /api/user/{id}/settings`
+- `GET /api/v1/user/{id}`
+- `PUT /api/v1/user`
+- `GET /api/v1/user/{id}/invitations`
+- `GET /api/v1/user/{id}/invitations/feed` (Mobile cursor)
+- `GET /api/v1/user/{id}/invited-by-list`
+- `GET /api/v1/user/{id}/notification`
+- `GET /api/v1/user/{id}/notification/feed` (Mobile cursor)
+- `DELETE /api/v1/user/{id}/notification`
+- `GET /api/v1/user/{id}/monk-profile`
+- `PATCH /api/v1/user/{id}/monk-profile`
+- `DELETE /api/v1/user/{id}/monk-profile`
+- `GET /api/v1/user/{id}/settings`
+- `PUT /api/v1/user/{id}/settings`
 
 ### Monasteries
 
@@ -245,8 +245,8 @@ Mobile feed endpoints use cursor-based keyset pagination via `CursorPagedResult<
 - `GET /api/v1/monasteries/feed`
 - `GET /api/v1/monasteries/search/feed`
 - `GET /api/v1/monasteries/mine/feed`
-- `GET /api/user/{id}/notification/feed`
-- `GET /api/user/{id}/invitations/feed`
+- `GET /api/v1/user/{id}/notification/feed`
+- `GET /api/v1/user/{id}/invitations/feed`
 
 These endpoints accept `lastId` (integer, optional; omit on initial fetch) and `pageSize` (default `15`). Responses return `data` along with `pagination: { nextCursor, hasNextPage, pageSize }`:
 

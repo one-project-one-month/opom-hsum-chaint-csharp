@@ -112,20 +112,20 @@ try {
   });
   await stage('User create, duplicate validation, edit, role assignment', async () => {
     await go('/users'); await open('အသုံးပြုသူအသစ် ဖန်တီးရန်'); await fill({ name: `${tag}Donor`, phoneNumber: donorPhone, password: testPassword, roleId: 3 }); await save();
-    userId = (await lookup('/api/User', u => u.phoneNumber === donorPhone)).id;
+    userId = (await lookup('/api/v1/User', u => u.phoneNumber === donorPhone)).id;
     await open('အသုံးပြုသူအသစ် ဖန်တီးရန်'); await fill({ name: `${tag}Duplicate`, phoneNumber: donorPhone, password: testPassword, roleId: 3 }); await save(false, true); await page.keyboard.press('Escape');
     await go(`/users/${userId}`); await open('အသုံးပြုသူ ပြင်ရန်'); await fill({ name: `${tag}DonorEdited`, email: 'e2e@example.invalid', roleId }); await save();
-    assert.equal((await api(`/api/User/${userId}`)).data.roleId, roleId);
+    assert.equal((await api(`/api/v1/User/${userId}`)).data.roleId, roleId);
     await open('အသုံးပြုသူ ပြင်ရန်'); await fill({ roleId: 3 }); await save();
   });
   await stage('User schedule/reminder settings and Monk profile lifecycle', async () => {
     await open('အချိန်နှင့် အသိပေးမှု ပြင်ရန်'); await fill({ pickupTime: '2026-11-01T09:00', pickupNotificationTime: '2026-11-01T08:30' }); await save();
-    assert.ok((await api(`/api/User/${userId}/settings`)).data.pickupTime.startsWith('2026-11-01T02:30'));
+    assert.ok((await api(`/api/v1/User/${userId}/settings`)).data.pickupTime.startsWith('2026-11-01T02:30'));
     await go('/users'); await open('အသုံးပြုသူအသစ် ဖန်တီးရန်'); await fill({ name: `${tag}Monk`, phoneNumber: monkPhone, password: testPassword, roleId: 2, monasteryName: tag, monasteryAddress: 'Yangon' }); await save();
-    const monk = await lookup('/api/User', u => u.phoneNumber === monkPhone);
+    const monk = await lookup('/api/v1/User', u => u.phoneNumber === monkPhone);
     monkId = monk.id;
     await go(`/users/${monk.id}`); await open('သံဃာကိုယ်ရေးအချက်အလက် ပြင်ရန်'); await fill({ monasteryName: `${tag}Profile`, monasteryAddress: 'Mandalay' }); await save();
-    assert.equal((await api(`/api/User/${monk.id}/monk-profile`)).data.monasteryName, `${tag}Profile`);
+    assert.equal((await api(`/api/v1/User/${monk.id}/monk-profile`)).data.monasteryName, `${tag}Profile`);
     await open('သံဃာကိုယ်ရေးအချက်အလက် ဖျက်ရန်'); await save(true);
   });
   await stage('Monastery create/edit, Owner protection, member invite', async () => {
@@ -217,9 +217,9 @@ try {
     await go('/roles'); let card = page.locator('[data-slot="card"]').filter({ has: page.getByText(`${tag}RoleEdited`, { exact: true }) }); await open('ဖျက်ရန်', card); await save(true);
     await go('/space-roles'); card = page.locator('[data-slot="card"]').filter({ has: page.getByText(`${tag}Space`, { exact: true }) }); await open('ဖျက်ရန်', card); await save(true);
     // User list is paginated; navigate directly to the page containing the test user.
-    let userPage = 1; for (; userPage < 100; userPage++) { const users = await api(`/api/User?PageNumber=${userPage}&PageSize=10`); if (users.data.some(u => u.id === userId)) break; }
+    let userPage = 1; for (; userPage < 100; userPage++) { const users = await api(`/api/v1/User?PageNumber=${userPage}&PageSize=10`); if (users.data.some(u => u.id === userId)) break; }
     await go(`/users?page=${userPage}`); const row = page.getByRole('row').filter({ hasText: `${tag}DonorEdited` }); await open('ရပ်ဆိုင်း', row); await save(true);
-    await api(`/api/User/${userId}`, 'GET', undefined, 404);
+    await api(`/api/v1/User/${userId}`, 'GET', undefined, 404);
     await go(`/monasteries/${monasteryId}`); await open('ကျောင်းတိုက် ရပ်ဆိုင်းရန်'); await save(true);
     await page.waitForURL('**/monasteries');
     await api(`/api/v1/admin/monasteries/${monasteryId}`, 'GET', undefined, 404);

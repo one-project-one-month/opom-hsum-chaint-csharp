@@ -1,9 +1,11 @@
 using System.Threading.Tasks;
 using HsumChaint.API.Extensions;
 using HsumChaint.Database.Models;
+using HsumChaint.Domain.Features.Auth;
 using HsumChaint.Domain.Features.Auth.DTOs;
 using HsumChaint.Domain.Features.Auth.ServiceInterfaces;
 using HsumChaint.Shared;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -28,6 +30,15 @@ namespace HsumChaint.API.Features.Auth.Controllers
         }
 
         #region Register
+        [HttpPost("register/request-otp")]
+        public async Task<IActionResult> RequestRegisterOtp([FromBody] RequestOtpDto request)
+        {
+            request.Channel = OtpChannels.Email;
+            request.Purpose = OtpPurposes.VerifyEmail;
+            var result = await _otpService.Request(request);
+            return result.ToActionResult();
+        }
+
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterRequestDto reqModel, [FromServices] AppDbContext db)
         {
@@ -91,6 +102,65 @@ namespace HsumChaint.API.Features.Auth.Controllers
         {
             var refreshTokenResponse = await _authService.RefreshTokens(reqModel);
             return refreshTokenResponse.ToActionResult();
+        }
+        #endregion
+
+        #region ForgotPassword & ResetPassword
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] RequestOtpDto request)
+        {
+            request.Channel = OtpChannels.Email;
+            request.Purpose = OtpPurposes.ResetPassword;
+            var result = await _otpService.Request(request);
+            return result.ToActionResult();
+        }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequestDto request)
+        {
+            var result = await _authService.ResetPassword(request);
+            return result.ToActionResult();
+        }
+        #endregion
+
+        #region ChangePassword
+        [Authorize]
+        [HttpPost("change-password/request-otp")]
+        public async Task<IActionResult> RequestChangePasswordOtp([FromServices] AppDbContext db)
+        {
+            var userId = User.GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized();
+            }
+
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId.Value && u.IsDeleted == false);
+            if (user == null || string.IsNullOrWhiteSpace(user.Email))
+            {
+                return BadRequest("User does not have an active registered email address.");
+            }
+
+            var result = await _otpService.Request(new RequestOtpDto
+            {
+                Destination = user.Email,
+                Channel = OtpChannels.Email,
+                Purpose = OtpPurposes.ChangePassword
+            });
+            return result.ToActionResult();
+        }
+
+        [Authorize]
+        [HttpPost("change-password")]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequestDto request)
+        {
+            var userId = User.GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized();
+            }
+
+            var result = await _authService.ChangePassword(userId.Value, request);
+            return result.ToActionResult();
         }
         #endregion
     }
