@@ -18,6 +18,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Features\Auth\EmailTemplates\OtpEmailTemplate.html" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\HsumChaint.Shared\HsumChaint.Shared.csproj" />
     <ProjectReference Include="..\HsumChaint.Database\HsumChaint.Database.csproj" />
   </ItemGroup>
