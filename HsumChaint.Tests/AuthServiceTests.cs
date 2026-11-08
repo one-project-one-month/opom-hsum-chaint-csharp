@@ -307,6 +307,110 @@ public class AuthServiceTests
         Assert.Equal("Phone number or password incorrect!", passwordResult.Message);
     }
 
+    [Fact]
+    public async Task Logout_WithValidUserId_RevokesActiveRefreshToken_AndBlocksFutureRefresh()
+    {
+        await using var db = CreateDbContext();
+        var user = CreateUser("09100000005", "Passw0rd!");
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db);
+        var login = await service.Login(new() { PhoneNumber = user.PhoneNumber, Password = "Passw0rd!" });
+        Assert.True(login.IsSuccess);
+        Assert.NotNull(login.Data?.RefreshToken);
+
+        var tokenBefore = await db.RefreshTokens.FirstOrDefaultAsync(r => r.UserId == user.Id);
+        Assert.NotNull(tokenBefore);
+        Assert.Null(tokenBefore.RevokedAt);
+
+        var logoutResult = await service.Logout(user.Id, null);
+        Assert.True(logoutResult.IsSuccess);
+        Assert.Equal("Logged out successfully.", logoutResult.Message);
+
+        var tokenAfter = await db.RefreshTokens.FirstOrDefaultAsync(r => r.UserId == user.Id);
+        Assert.NotNull(tokenAfter);
+        Assert.NotNull(tokenAfter.RevokedAt);
+
+        var refreshResult = await service.RefreshTokens(new() { UserId = user.Id, RefreshToken = login.Data.RefreshToken });
+        Assert.False(refreshResult.IsSuccess);
+        Assert.Equal("Invalid or expired Refresh Token", refreshResult.Message);
+    }
+
+    [Fact]
+    public async Task Logout_WithValidRefreshToken_WhenUserIdNull_RevokesToken()
+    {
+        await using var db = CreateDbContext();
+        var user = CreateUser("09100000006", "Passw0rd!");
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db);
+        var login = await service.Login(new() { PhoneNumber = user.PhoneNumber, Password = "Passw0rd!" });
+        Assert.True(login.IsSuccess);
+        Assert.NotNull(login.Data?.RefreshToken);
+
+        var logoutResult = await service.Logout(null, login.Data.RefreshToken);
+        Assert.True(logoutResult.IsSuccess);
+
+        var tokenAfter = await db.RefreshTokens.FirstOrDefaultAsync(r => r.UserId == user.Id);
+        Assert.NotNull(tokenAfter);
+        Assert.NotNull(tokenAfter.RevokedAt);
+
+        var refreshResult = await service.RefreshTokens(new() { UserId = user.Id, RefreshToken = login.Data.RefreshToken });
+        Assert.False(refreshResult.IsSuccess);
+    }
+
+    [Fact]
+    public async Task Logout_WithNoUserIdAndNoRefreshToken_ReturnsFailure()
+    {
+        await using var db = CreateDbContext();
+        var service = CreateService(db);
+
+        var logoutResult = await service.Logout(null, null);
+        Assert.False(logoutResult.IsSuccess);
+        Assert.Contains("required to logout", logoutResult.Message);
+    }
+
+    [Fact]
+    public async Task Logout_WhenTokenBelongsToDifferentUser_ReturnsFailure()
+    {
+        await using var db = CreateDbContext();
+        var user1 = CreateUser("09100000007", "Passw0rd!");
+        var user2 = CreateUser("09100000008", "Passw0rd!");
+        user2.Id = 2;
+        user2.Email = "user2@hsumchaint.local";
+        db.Users.AddRange(user1, user2);
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db);
+        var login1 = await service.Login(new() { PhoneNumber = user1.PhoneNumber, Password = "Passw0rd!" });
+        Assert.True(login1.IsSuccess);
+
+        var logoutResult = await service.Logout(user2.Id, login1.Data!.RefreshToken);
+        Assert.False(logoutResult.IsSuccess);
+        Assert.Contains("Invalid refresh token for current user", logoutResult.Message);
+    }
+
+    [Fact]
+    public async Task Logout_WhenTokenAlreadyRevoked_ReturnsSuccess_Idempotent()
+    {
+        await using var db = CreateDbContext();
+        var user = CreateUser("09100000009", "Passw0rd!");
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db);
+        var login = await service.Login(new() { PhoneNumber = user.PhoneNumber, Password = "Passw0rd!" });
+        Assert.True(login.IsSuccess);
+
+        var firstLogout = await service.Logout(user.Id, login.Data!.RefreshToken);
+        Assert.True(firstLogout.IsSuccess);
+
+        var secondLogout = await service.Logout(user.Id, login.Data.RefreshToken);
+        Assert.True(secondLogout.IsSuccess);
+    }
+
     private static AppDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()

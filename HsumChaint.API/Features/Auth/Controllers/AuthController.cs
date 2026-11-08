@@ -105,6 +105,16 @@ namespace HsumChaint.API.Features.Auth.Controllers
         }
         #endregion
 
+        #region Logout
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout([FromBody] LogoutRequestDto? request)
+        {
+            var userId = User.GetCurrentUserId();
+            var result = await _authService.Logout(userId, request?.RefreshToken);
+            return result.ToActionResult();
+        }
+        #endregion
+
         #region ForgotPassword & ResetPassword
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] RequestOtpDto request)
