@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Net.Mail;
+using System.Text;
 using System.Threading.Tasks;
 using HsumChaint.Domain.Configuration;
 using HsumChaint.Domain.Features.Auth.ServiceInterfaces;
@@ -11,10 +12,17 @@ namespace HsumChaint.Domain.Features.Auth.Services
     public class SmtpEmailSender : IEmailSender
     {
         private readonly SmtpOptions _options;
+        private readonly OtpOptions _otpOptions;
+        private readonly OtpEmailTemplateRenderer _templateRenderer;
 
-        public SmtpEmailSender(IOptions<SmtpOptions> options)
+        public SmtpEmailSender(
+            IOptions<SmtpOptions> options,
+            IOptions<OtpOptions> otpOptions,
+            OtpEmailTemplateRenderer templateRenderer)
         {
             _options = options.Value;
+            _otpOptions = otpOptions.Value;
+            _templateRenderer = templateRenderer;
         }
 
         #region Send OTP
@@ -28,12 +36,15 @@ namespace HsumChaint.Domain.Features.Auth.Services
                 _ => "Your HsumChaint verification code"
             };
 
-            var body = $"Your verification code is: {otp}\n\nThis code will expire in 5 minutes.\nDo not share this code with anyone. If you did not request it, you can safely ignore this email.";
+            var body = _templateRenderer.Render(otp, _otpOptions.LifetimeMinutes, DateTime.UtcNow.Year);
 
             using var message = new MailMessage(new MailAddress(_options.FromEmail, _options.FromName), new MailAddress(email))
             {
                 Subject = subject,
-                Body = body
+                SubjectEncoding = Encoding.UTF8,
+                Body = body,
+                BodyEncoding = Encoding.UTF8,
+                IsBodyHtml = true
             };
 
             using var client = new SmtpClient(_options.Host, _options.Port)

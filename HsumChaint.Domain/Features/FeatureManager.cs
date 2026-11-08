@@ -43,6 +43,7 @@ public static class FeatureManager
         builder.Services.AddScoped<ILoginModeService, LoginModeService>();
         builder.Services.AddScoped<IOtpService, OtpService>();
         builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+        builder.Services.AddSingleton<OtpEmailTemplateRenderer>();
         builder.Services.AddScoped<IPasswordHasher<OtpCode>, PasswordHasher<OtpCode>>();
         builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
         builder.Services.Configure<OtpOptions>(builder.Configuration.GetSection("Otp"));
