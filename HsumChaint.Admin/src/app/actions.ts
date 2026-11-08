@@ -1,7 +1,7 @@
 'use server';
 import { redirect } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
-import { saveSession, clearSession } from '@/lib/session';
+import { saveSession, clearSession, readSession } from '@/lib/session';
 import type { Login } from '@/lib/types';
 export type LoginState = { error: string; phoneNumber?: string };
 export async function loginAction(_previous: LoginState, form: FormData): Promise<LoginState> {
@@ -16,4 +16,11 @@ export async function loginAction(_previous: LoginState, form: FormData): Promis
   }
   redirect('/dashboard');
 }
-export async function logoutAction() { await clearSession(); redirect('/login'); }
+export async function logoutAction() {
+  const session = await readSession();
+  if (session) {
+    await api('/api/v1/Auth/logout', session.accessToken, { refreshToken: session.refreshToken });
+  }
+  await clearSession();
+  redirect('/login');
+}
