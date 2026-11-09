@@ -11,5 +11,6 @@ namespace HsumChaint.Domain.Features.Auth.ServiceInterfaces
         Task<Result<LoginResponseDto>> RefreshTokens(RefreshTokenRequestDto request);
         Task<Result> ResetPassword(ResetPasswordRequestDto request);
         Task<Result> ChangePassword(int userId, ChangePasswordRequestDto request);
+        Task<Result> Logout(int? userId, string? refreshToken);
     }
 }

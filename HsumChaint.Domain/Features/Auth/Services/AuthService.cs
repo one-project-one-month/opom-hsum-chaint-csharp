@@ -596,6 +596,70 @@ namespace HsumChaint.Domain.Features.Auth.Services
         }
         #endregion
 
+        #region Logout
+        public async Task<Result> Logout(int? userId, string? refreshToken)
+        {
+            try
+            {
+                int? targetUserId = userId is > 0 ? userId : null;
+                var hasRefreshToken = refreshToken.TryNormalizeRequiredString(out var normalizedRefreshToken);
+
+                if (!targetUserId.HasValue && !hasRefreshToken)
+                {
+                    return Result.Failure("User session or refresh token is required to logout.");
+                }
+
+                var now = DateTime.UtcNow;
+                var tokensToRevoke = new List<RefreshToken>();
+
+                if (hasRefreshToken)
+                {
+                    var hashedToken = normalizedRefreshToken.HashToken();
+                    var tokenByHash = await _dbContext.RefreshTokens
+                        .FirstOrDefaultAsync(r => r.RefreshToken1 == hashedToken);
+
+                    if (tokenByHash != null)
+                    {
+                        if (targetUserId.HasValue && tokenByHash.UserId != targetUserId.Value)
+                        {
+                            return Result.Failure("Invalid refresh token for current user.");
+                        }
+
+                        if (tokenByHash.RevokedAt == null)
+                        {
+                            tokensToRevoke.Add(tokenByHash);
+                        }
+                    }
+                }
+                else if (targetUserId.HasValue)
+                {
+                    var uid = targetUserId.Value;
+                    var userTokens = await _dbContext.RefreshTokens
+                        .Where(r => r.UserId == uid && r.RevokedAt == null)
+                        .ToListAsync();
+
+                    tokensToRevoke.AddRange(userTokens);
+                }
+
+                foreach (var token in tokensToRevoke)
+                {
+                    token.RevokedAt = now;
+                }
+
+                if (tokensToRevoke.Count > 0)
+                {
+                    await _dbContext.SaveChangesAsync();
+                }
+
+                return Result.Success("Logged out successfully.");
+            }
+            catch (Exception ex)
+            {
+                return Result.Failure($"Application layer err: {ex.Message}");
+            }
+        }
+        #endregion
+
         #region GenerateAndSaveRefreshToken
         public async Task<string> GenerateAndSaveRefreshToken(GenerateRefreshTokenDto reqModel)
         {
