@@ -6,7 +6,7 @@ const translations: Record<string, string> = {
   'အလှူမှတ်တမ်းများ': 'Donation Records', 'အလှူပြက္ခဒိန်': 'Donation Calendar', 'ကျောင်းတိုက်များ': 'Monasteries', 'အသုံးပြုသူများ': 'Users',
   'အခန်းကဏ္ဍနှင့် ခွင့်ပြုချက်': 'Roles & Permissions', 'ကျောင်းတိုက်အခန်းကဏ္ဍများ': 'Monastery Roles', 'ကျောင်းတိုက်အခန်းကဏ္ဍ': 'Monastery Role',
   'ဖိတ်ခေါ်မှုများ': 'Invitations', 'အသိပေးချက်များ': 'Notifications', 'ခြုံငုံသုံးသပ်ချက်': 'Overview',
-  'စနစ်တစ်ခုလုံး စီမံခန့်ခွဲမှု': 'System-wide administration', 'ဆွမ်းဂျိုင့် စီမံခန့်ခွဲမှုစနစ်': 'HsumChaint Administration System',
+  'စနစ်တစ်ခုလုံး စီမံခန့်ခွဲမှု': 'System-wide administration', 'ဆွမ်းချိုင့် စီမံခန့်ခွဲမှုစနစ်': 'HsumChaint Administration System',
   'ကျောင်းတိုက်အားလုံး၏ အလှူမှတ်တမ်းနှင့် လက်ရှိအခြေအနေများ': 'Donation records and current statuses across all monasteries',
   'စနစ်တစ်ခုလုံးရှိ အလှူမှတ်တမ်းများ': 'Donation records across the system', 'အလှူစာရင်း': 'Donation List',
   'အလှူရှင်အမည် ရှာရန်': 'Search donor name', 'ကျောင်းတိုက်အမည် ရှာရန်': 'Search monastery name',
@@ -67,14 +67,14 @@ const translations: Record<string, string> = {
   'ခွင့်ပြုထားသော စီမံခန့်ခွဲသူများအတွက်သာ': 'For authorized administrators only', 'System Admin အကောင့် လိုအပ်ပါသည်။': 'A System Admin account is required.',
   'ဝင်ရောက်ချိန် သက်တမ်းကုန်ပါပြီ။ ပြန်ဝင်ပါ။': 'Your session has expired. Please sign in again.',
   'စကားဝှက် ဖျောက်ရန်': 'Hide password', 'စကားဝှက် ပြရန်': 'Show password', 'ဝင်ရောက်နေပါသည်…': 'Signing in…',
-  'ဆွမ်းဂျိုင့်စနစ်၏ လက်ရှိအခြေအနေကို တစ်နေရာတည်းမှ ကြည့်ရှုပါ။': 'View the current state of the HsumChaint system in one place.',
+  'ဆွမ်းချိုင့်စနစ်၏ လက်ရှိအခြေအနေကို တစ်နေရာတည်းမှ ကြည့်ရှုပါ။': 'View the current state of the HsumChaint system in one place.',
   'အလှူစာရင်း ကြည့်ရန်': 'View Donations', 'အလှူတိုင်းကို အလေးထား စီမံခြင်း': 'Manage Every Donation with Care',
-  'ကျောင်းတိုက်များနှင့် အလှူရှင်များအကြား ချိတ်ဆက်ပေးသော ဆွမ်းဂျိုင့်': 'Connecting monasteries and donors through HsumChaint',
+  'ကျောင်းတိုက်များနှင့် အလှူရှင်များအကြား ချိတ်ဆက်ပေးသော ဆွမ်းချိုင့်': 'Connecting monasteries and donors through HsumChaint',
   'အလှူ စုစုပေါင်း': 'Total Donations', 'မှတ်တမ်းအားလုံး': 'All records', 'စိစစ်ရန် စောင့်ဆိုင်းဆဲ': 'Pending Review',
   'လက်ရှိကျောင်းတိုက်များ': 'Active monasteries', 'လက်ရှိအကောင့်များ': 'Active accounts', 'ပြီးစီးသည့် အလှူများ': 'Completed Donations',
   'နောက်ဆုံး အလှူမှတ်တမ်းများ': 'Recent Donation Records', 'လတ်တလော မှတ်တမ်းတင်ထားသော အလှူများ': 'Recently recorded donations',
   'အားလုံး ကြည့်ရန်': 'View All', 'System roles ကို ကြည့်ရှုရန်': 'View system roles', 'မှတ်တမ်း': 'records',
-  'ဆွမ်းဂျိုင့်': 'HsumChaint',
+  'ဆွမ်းချိုင့်': 'HsumChaint',
 };
 const entries = Object.entries(translations).sort((a, b) => b[0].length - a[0].length);
 export function translateText(value: string, locale: Locale) { if (locale === 'my') return value; let result = value; for (const [my, en] of entries) result = result.split(my).join(en); return result; }
