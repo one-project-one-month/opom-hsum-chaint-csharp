@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Net.Mail;
+using System.Net.Mime;
 using System.Text;
 using System.Threading.Tasks;
 using HsumChaint.Domain.Configuration;
@@ -42,10 +43,20 @@ namespace HsumChaint.Domain.Features.Auth.Services
             {
                 Subject = subject,
                 SubjectEncoding = Encoding.UTF8,
-                Body = body,
-                BodyEncoding = Encoding.UTF8,
-                IsBodyHtml = true
+                BodyEncoding = Encoding.UTF8
             };
+
+            var htmlView = AlternateView.CreateAlternateViewFromString(body, Encoding.UTF8, MediaTypeNames.Text.Html);
+            using var logoStream = new MemoryStream(_templateRenderer.LogoBytes, writable: false);
+            using var logo = new LinkedResource(logoStream, MediaTypeNames.Image.Png)
+            {
+                ContentId = OtpEmailTemplateRenderer.LogoContentId,
+                TransferEncoding = TransferEncoding.Base64
+            };
+            logo.ContentType.Name = "hsumchaint-logo.png";
+            logo.ContentLink = new Uri($"cid:{OtpEmailTemplateRenderer.LogoContentId}");
+            htmlView.LinkedResources.Add(logo);
+            message.AlternateViews.Add(htmlView);
 
             using var client = new SmtpClient(_options.Host, _options.Port)
             {
